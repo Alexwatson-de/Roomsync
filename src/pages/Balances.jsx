@@ -202,12 +202,12 @@ export default function Balances() {
   );
 }
 
-function SettlementForm({ members, prefill, currentUid, canManageOthers, onClose, onSave }) {
-  const [from, setFrom] = useState(prefill.from || currentUid);
-  const [to, setTo] = useState(prefill.to || members.find((m) => m.uid !== currentUid)?.uid || '');
+export function SettlementForm({ members, prefill = {}, reviewNote, currentUid, canManageOthers, onClose, onSave }) {
+  const [from, setFrom] = useState(prefill.from ?? currentUid);
+  const [to, setTo] = useState(prefill.to ?? members.find((m) => m.uid !== currentUid)?.uid ?? '');
   const [amount, setAmount] = useState(prefill.amountPaise ? (prefill.amountPaise / 100).toFixed(2) : '');
-  const [date, setDate] = useState(isoDate(new Date()));
-  const [note, setNote] = useState('');
+  const [date, setDate] = useState(prefill.date ?? isoDate(new Date()));
+  const [note, setNote] = useState(prefill.note || '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -217,6 +217,7 @@ function SettlementForm({ members, prefill, currentUid, canManageOthers, onClose
     const amountPaise = parseAmountToPaise(amount);
     if (amountPaise === null || amountPaise <= 0) return setError('Enter a valid amount.');
     if (from === to) return setError('Payer and receiver must differ.');
+    if (!from || !to) return setError('Choose both the payer and receiver.');
     if (!canManageOthers && from !== currentUid && to !== currentUid) {
       return setError('You can only record settlements that involve you.');
     }
@@ -231,6 +232,7 @@ function SettlementForm({ members, prefill, currentUid, canManageOthers, onClose
 
   return (
     <Modal title="Record settlement" onClose={onClose}>
+      {reviewNote}
       <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>
         Record that a repayment happened outside the app (cash, UPI, bank). This does not transfer money.
       </p>
@@ -245,6 +247,7 @@ function SettlementForm({ members, prefill, currentUid, canManageOthers, onClose
           <div className="field">
             <label>Receiver</label>
             <select value={to} onChange={(e) => setTo(e.target.value)}>
+              <option value="">Choose receiver</option>
               {members.map((m) => <option key={m.uid} value={m.uid}>{m.displayName}</option>)}
             </select>
           </div>

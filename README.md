@@ -13,6 +13,35 @@ Cloud Functions, phone/SMS auth, external avatar API or other paid service is
 used. Free does not mean unlimited: monitor Auth/Firestore/Hosting quotas.
 Official plan details: <https://firebase.google.com/docs/projects/billing/firebase-pricing-plans>.
 
+## Quick Add: chat-style drafts with mandatory review
+
+Use **Quick Add** in the toolbar to type a household action. Common requests
+open an editable modal to double-check; nothing saves until its final confirmation.
+
+- `Add 2 kg rice to the grocery list`
+- `I paid ₹1500 for groceries split equally between me, Rahul and Priya`
+- `I paid 1500 for dinner split unequally: me 700, Rahul 800`
+- `I paid 1000 for lunch split percentages: me 60%, Rahul 40%`
+- `I paid 900 for dinner split 2:1 between me and Rahul`
+- `Create a rent bill ₹18000 due tomorrow monthly`
+- `Assign chore clean the kitchen to Rahul tomorrow weekly`
+- `I repaid Rahul ₹500 yesterday`
+- `Mark rent bill as paid` / `Mark milk as purchased for ₹60`
+- `Complete chore clean the kitchen`
+
+**This is free local text parsing, not an AI/LLM service.** No AI keys, network
+inference, external provider, billing upgrade or new dependency is required.
+It supports common English command formats, not arbitrary conversation. Ambiguous
+member names require selection; unsupported/missing facts are flagged for review.
+Chat text stays in tab memory, resets between households/users, and is not silently
+logged to Firestore. Normal forms remain available.
+
+All four expense splits use the existing paise validators. Existing payment/
+purchase workflows first select a specific open record and explicitly choose
+whether a shared expense is linked; status-only changes do not affect balances.
+Cancellation and opening a draft do not write data. No message moves money or
+changes permissions. See [Quick Add syntax, safety and implementation](docs/quick-add.md).
+
 ## Generated avatars and full-viewport modals
 
 Profile photos have been replaced with locally rendered initials avatars:
@@ -95,18 +124,21 @@ No Storage setup, Blaze upgrade or billing attachment is part of setup.
 
 Latest checks for this change:
 
-- **47 unit tests**: existing 40 calculation tests plus 7 avatar tests covering
+- **78 unit tests**: 31 local Quick Add/parser tests plus the existing 40 calculation tests and 7 avatar tests covering
   initials/Unicode, deterministic defaults, supported styles/colors, legacy
   profile preservation, invalid enum handling and text contrast.
 - **33 Firestore rule tests**: existing financial/privacy checks plus avatar
   self-edit, legacy-field preservation and invalid/cross-user edit denials.
-- **6 browser workflows** using only local Auth + Firestore emulators:
+- **11 browser workflows** using only local Auth + Firestore emulators:
   registration/login, profile styling and persistence across reload/sign-in,
   existing/new households, real-time shared avatar changes, missing-profile
   defaults without migration, legacy image/custom-field preservation, no Storage
   requests, desktop/mobile avatar rendering and modal viewport/focus/scroll tests.
   Existing expense, settlement, bill/grocery transaction, recurrence, notification,
   theme and household sharing regression paths remain covered.
+  Five Quick Add workflows additionally verify no writes before confirmation,
+  cancellation, member disambiguation, exact/custom/percentage/share allocations,
+  existing paid/purchased/completed reviews, mobile display and no AI requests.
 
 ```bash
 npm test

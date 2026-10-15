@@ -162,14 +162,15 @@ export default function Groceries() {
   );
 }
 
-function ItemForm({ members, initial, onClose, onSave }) {
+export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave }) {
+  const seed = initial || draft;
   const [form, setForm] = useState(() => ({
-    name: initial?.name || '',
-    quantity: initial?.quantity || '',
-    unit: initial?.unit || '',
-    category: initial?.category || 'Vegetables',
-    notes: initial?.notes || '',
-    assignedTo: initial?.assignedTo || '',
+    name: seed?.name || '',
+    quantity: seed?.quantity || '',
+    unit: seed?.unit || '',
+    category: seed?.category || 'Vegetables',
+    notes: seed?.notes || '',
+    assignedTo: seed?.assignedTo || '',
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -189,6 +190,7 @@ function ItemForm({ members, initial, onClose, onSave }) {
 
   return (
     <Modal title={initial ? 'Edit item' : 'Add grocery item'} onClose={onClose}>
+      {reviewNote}
       <form onSubmit={submit}>
         <div className="field">
           <label>Item</label>
@@ -233,9 +235,9 @@ function ItemForm({ members, initial, onClose, onSave }) {
   );
 }
 
-function PurchaseModal({ item, members, currentUid, onClose, onSave }) {
-  const [price, setPrice] = useState('');
-  const [paidBy, setPaidBy] = useState(currentUid);
+export function PurchaseModal({ item, members, currentUid, prefill, reviewNote, allowLedger = true, onClose, onSave }) {
+  const [price, setPrice] = useState(prefill?.totalPaise ? (prefill.totalPaise / 100).toFixed(2) : '');
+  const [paidBy, setPaidBy] = useState(prefill?.paidBy || currentUid);
   const [recordExpense, setRecordExpense] = useState(false);
   const [participants, setParticipants] = useState(members.map((m) => m.uid));
   const [error, setError] = useState('');
@@ -262,6 +264,7 @@ function PurchaseModal({ item, members, currentUid, onClose, onSave }) {
 
   return (
     <Modal title={`Purchased: ${item.name}`} onClose={onClose}>
+      {reviewNote}
       <form onSubmit={submit}>
         <div className="form-row">
           <div className="field">
@@ -275,10 +278,10 @@ function PurchaseModal({ item, members, currentUid, onClose, onSave }) {
             </select>
           </div>
         </div>
-        <label className="checkbox-row">
+        {allowLedger && <label className="checkbox-row">
           <input type="checkbox" checked={recordExpense} onChange={(e) => setRecordExpense(e.target.checked)} />
           Record as a shared expense (updates balances)
-        </label>
+        </label>}
         {recordExpense && (
           <MemberSelect members={members} selected={participants} onChange={setParticipants} label="Split equally between" />
         )}

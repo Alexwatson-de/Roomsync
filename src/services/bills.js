@@ -19,7 +19,7 @@ export async function updateBill(hid, id, patch) {
   await updateDoc(recordRef(hid, 'bills', id), { ...allowed, updatedAt: serverTimestamp() });
 }
 export const archiveBill = (hid, id) => updateBill(hid, id, { archived: true });
-export async function markBillPaid(hid, bill, { paidPaise, expenseInput = null }) {
+export async function markBillPaid(hid, bill, { paidPaise, expenseInput = null, paidBy = null }) {
   if (!Number.isSafeInteger(paidPaise) || paidPaise <= 0) throw new Error('Enter a positive amount.');
   if (expenseInput) { buildExpenseData(expenseInput); if (expenseInput.totalPaise !== paidPaise) throw new Error('Bill and expense amounts must match.'); }
   return runTransaction(db, async (tx) => {
@@ -30,11 +30,14 @@ export async function markBillPaid(hid, bill, { paidPaise, expenseInput = null }
     const due = current.recurrence === 'one-time' ? null : nextDueDate(current.recurrence, current.anchorDate, current.dueDate);
     const nextId = due ? `${current.seriesId}_${periodKey(current.recurrence, due)}` : null;
     if (current.paidAt) return nextId;
+    const paymentPayer = expenseInput ? Object.keys(expenseInput.payers)[0] : paidBy || user.uid;
+    const payerMember = await tx.get(recordRef(hid, 'members', paymentPayer));
+    if (!payerMember.exists()) throw new Error('Choose a current household member as the bill payer.');
     const nextSnap = nextId ? await tx.get(recordRef(hid, 'bills', nextId)) : null;
     const expenseId = expenseInput ? `bill_payment_${bill.id}` : null;
     const expenseSnap = expenseId ? await tx.get(recordRef(hid, 'expenses', expenseId)) : null;
     if (expenseInput && !expenseSnap.exists()) writeExpense(tx, hid, user, expenseId, expenseInput);
-    tx.update(snap.ref, { paidAt: serverTimestamp(), paidBy: expenseInput ? Object.keys(expenseInput.payers)[0] : user.uid, paidPaise, expenseId, updatedAt: serverTimestamp() });
+    tx.update(snap.ref, { paidAt: serverTimestamp(), paidBy: paymentPayer, paidPaise, expenseId, updatedAt: serverTimestamp() });
     writeEvent(tx, hid, user, `bill_paid_${bill.id}`, 'bill_paid', { refId: bill.id, summary: `${user.displayName || user.email} marked "${current.name}" paid`, meta: { paidPaise } });
     if (nextId && !nextSnap.exists()) tx.set(nextSnap.ref, billRecord(user, current, current.seriesId, due, current.anchorDate));
     return nextId;

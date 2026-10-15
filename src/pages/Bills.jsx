@@ -177,7 +177,7 @@ export default function Bills() {
                 description: `Payment of bill "${paying.name}" due ${paying.dueDate}`,
               };
             }
-            const nextId = await markBillPaid(activeId, paying, { paidPaise, expenseInput });
+            const nextId = await markBillPaid(activeId, paying, { paidPaise, expenseInput, paidBy });
             toast(addToLedger ? 'Bill paid and added to expenses' : 'Bill marked paid');
             if (nextId) toast.info('Next occurrence scheduled');
             setPaying(null);
@@ -238,16 +238,17 @@ function BillCalendar({ bills, today }) {
   );
 }
 
-function BillForm({ members, initial, onClose, onSave }) {
+export function BillForm({ members, initial, draft, reviewNote, onClose, onSave }) {
+  const seed = initial || draft;
   const [form, setForm] = useState(() => ({
-    name: initial?.name || '',
-    category: initial?.category || 'Rent',
-    amount: initial ? (initial.expectedPaise / 100).toFixed(2) : '',
-    dueDate: initial?.dueDate || isoDate(new Date()),
-    recurrence: initial?.recurrence || 'monthly',
-    assignedTo: initial?.assignedTo || '',
-    participants: initial?.participants?.length ? initial.participants : members.map((m) => m.uid),
-    notes: initial?.notes || '',
+    name: seed?.name || '',
+    category: seed?.category || 'Rent',
+    amount: Number.isSafeInteger(seed?.expectedPaise) && seed.expectedPaise > 0 ? (seed.expectedPaise / 100).toFixed(2) : '',
+    dueDate: seed?.dueDate ?? isoDate(new Date()),
+    recurrence: seed?.recurrence || 'monthly',
+    assignedTo: seed?.assignedTo || '',
+    participants: seed?.participants || members.map((m) => m.uid),
+    notes: seed?.notes || '',
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -282,6 +283,7 @@ function BillForm({ members, initial, onClose, onSave }) {
 
   return (
     <Modal title={initial ? 'Edit bill' : 'Add bill'} onClose={onClose}>
+      {reviewNote}
       <form onSubmit={submit}>
         <div className="form-row">
           <div className="field">
@@ -338,10 +340,10 @@ function BillForm({ members, initial, onClose, onSave }) {
   );
 }
 
-function PayBillModal({ bill, members, onClose, onSave }) {
-  const [amount, setAmount] = useState((bill.expectedPaise / 100).toFixed(2));
-  const [addToLedger, setAddToLedger] = useState(true);
-  const [paidBy, setPaidBy] = useState(bill.assignedTo || members[0]?.uid || '');
+export function PayBillModal({ bill, members, prefill, reviewNote, allowLedger = true, onClose, onSave }) {
+  const [amount, setAmount] = useState(((prefill?.totalPaise || bill.expectedPaise) / 100).toFixed(2));
+  const [addToLedger, setAddToLedger] = useState(allowLedger);
+  const [paidBy, setPaidBy] = useState(prefill?.paidBy || bill.assignedTo || members[0]?.uid || '');
   const [participants, setParticipants] = useState(bill.participants?.length ? bill.participants : members.map((m) => m.uid));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -351,6 +353,7 @@ function PayBillModal({ bill, members, onClose, onSave }) {
     setError('');
     const paidPaise = parseAmountToPaise(amount);
     if (paidPaise === null || paidPaise <= 0) return setError('Enter the actual amount paid.');
+    if (!paidBy) return setError('Choose who actually paid.');
     if (addToLedger && participants.length === 0) return setError('Select who shares this bill.');
     setBusy(true);
     try {
@@ -363,24 +366,25 @@ function PayBillModal({ bill, members, onClose, onSave }) {
 
   return (
     <Modal title={`Mark "${bill.name}" as paid`} onClose={onClose}>
+      {reviewNote}
       <form onSubmit={submit}>
         <div className="field">
           <label>Actual amount paid (₹)</label>
           <input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <span className="hint">Expected: {formatPaise(bill.expectedPaise)}</span>
         </div>
-        <label className="checkbox-row">
+        {allowLedger && <label className="checkbox-row">
           <input type="checkbox" checked={addToLedger} onChange={(e) => setAddToLedger(e.target.checked)} />
           Also record as a shared expense (updates balances)
-        </label>
-        {addToLedger && (
-          <>
-            <div className="field" style={{ marginTop: '0.5rem' }}>
+        </label>}
+        <div className="field" style={{ marginTop: '0.5rem' }}>
               <label>Paid by</label>
               <select value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
                 {members.map((m) => <option key={m.uid} value={m.uid}>{m.displayName}</option>)}
               </select>
             </div>
+        {addToLedger && (
+          <>
             <MemberSelect members={members} selected={participants} onChange={setParticipants} label="Split equally between" />
           </>
         )}

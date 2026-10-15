@@ -9,24 +9,25 @@ import { computeShares } from '../lib/splits.js';
 import { EXPENSE_CATEGORIES } from '../lib/constants.js';
 import { isoDate } from '../lib/recurrence.js';
 
-export default function ExpenseForm({ members, initial, onSave, onClose, title = 'Add expense' }) {
+export default function ExpenseForm({ members, initial, draft, reviewNote, onSave, onClose, title = 'Add expense' }) {
+  const seed = initial || draft;
   const [form, setForm] = useState(() => ({
-    title: initial?.title || '',
-    amount: initial ? (initial.totalPaise / 100).toFixed(2) : '',
-    date: initial?.date || isoDate(new Date()),
-    category: initial?.category || 'Groceries',
-    paidBy: initial ? Object.keys(initial.payers)[0] : members[0]?.uid || '',
-    participants: initial?.participants || members.map((m) => m.uid),
-    splitMethod: initial?.splitMethod || 'equal',
-    description: initial?.description || '',
+    title: seed?.title || '',
+    amount: Number.isSafeInteger(seed?.totalPaise) && seed.totalPaise > 0 ? (seed.totalPaise / 100).toFixed(2) : '',
+    date: seed?.date ?? isoDate(new Date()),
+    category: seed?.category || 'Groceries',
+    paidBy: seed ? Object.keys(seed.payers || {})[0] || '' : members[0]?.uid || '',
+    participants: seed?.participants || members.map((m) => m.uid),
+    splitMethod: seed?.splitMethod || 'equal',
+    description: seed?.description || '',
   }));
   // Per-member inputs for custom (₹), percentage (%), shares (int)
   const [detailInputs, setDetailInputs] = useState(() => {
     const init = {};
-    if (initial?.splitDetail) {
-      for (const [uid, v] of Object.entries(initial.splitDetail)) {
+    if (seed?.splitDetail) {
+      for (const [uid, v] of Object.entries(seed.splitDetail)) {
         init[uid] =
-          initial.splitMethod === 'custom' ? (v / 100).toFixed(2) : String(v);
+          seed.splitMethod === 'custom' ? (v / 100).toFixed(2) : String(v);
       }
     }
     return init;
@@ -110,6 +111,7 @@ export default function ExpenseForm({ members, initial, onSave, onClose, title =
 
   return (
     <Modal title={title} onClose={onClose}>
+      {reviewNote}
       <form onSubmit={submit}>
         <div className="form-row">
           <div className="field">
@@ -138,6 +140,7 @@ export default function ExpenseForm({ members, initial, onSave, onClose, title =
         <div className="field">
           <label>Paid by</label>
           <select value={form.paidBy} onChange={(e) => set('paidBy', e.target.value)}>
+            <option value="">Choose payer</option>
             {members.map((m) => (
               <option key={m.uid} value={m.uid}>
                 {m.displayName}

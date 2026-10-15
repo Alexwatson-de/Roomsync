@@ -191,16 +191,17 @@ export default function Chores() {
   );
 }
 
-function ChoreForm({ members, initial, onClose, onSave }) {
+export function ChoreForm({ members, initial, draft, reviewNote, onClose, onSave }) {
+  const seed = initial || draft;
   const [form, setForm] = useState(() => ({
-    title: initial?.title || '',
-    instructions: initial?.instructions || '',
-    assignees: initial?.assignees || [],
-    dueDate: initial?.dueDate || isoDate(new Date()),
-    recurrence: initial?.recurrence || 'one-time',
-    priority: initial?.priority || 'medium',
-    useRotation: !!initial?.rotation?.length,
-    rotation: initial?.rotation || [],
+    title: seed?.title || '',
+    instructions: seed?.instructions || '',
+    assignees: seed?.assignees || [],
+    dueDate: seed?.dueDate ?? isoDate(new Date()),
+    recurrence: seed?.recurrence || 'one-time',
+    priority: seed?.priority || 'medium',
+    useRotation: !!seed?.rotation?.length,
+    rotation: seed?.rotation || [],
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -231,6 +232,7 @@ function ChoreForm({ members, initial, onClose, onSave }) {
 
   return (
     <Modal title={initial ? 'Edit chore' : 'Add chore'} onClose={onClose}>
+      {reviewNote}
       <form onSubmit={submit}>
         <div className="field">
           <label>Title</label>
