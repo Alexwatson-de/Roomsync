@@ -4,6 +4,9 @@
 import { runTransaction } from 'firebase/firestore';
 import { db, currentUser, memberAccess, recordRef } from './cloudStore.js';
 import { writeExpense } from './expenses.js';
+import { writeGroceryItem } from './groceries.js';
+import { writeBillDraft } from './bills.js';
+import { buildHouseholdDraft, draftCollection, draftPeople } from '../lib/householdDrafts.js';
 import { buildExpenseData } from '../lib/expenseData.js';
 import { batchDocumentId, batchFingerprint, MAX_BATCH_EXPENSES } from '../lib/expenseBatch.js';
 
@@ -11,8 +14,8 @@ export async function prepareExpenseBatch(hid, batchId, entries) {
   const user = currentUser();
   if (!hid || !Array.isArray(entries) || !entries.length || entries.length > MAX_BATCH_EXPENSES) throw new Error('Confirm between 1 and 8 valid expenses.');
   if (new Set(entries.map((item) => item.id)).size !== entries.length) throw new Error('Batch contains duplicate item IDs.');
-  const items = entries.map(({ id, input }) => ({ id, documentId: batchDocumentId(batchId, id), input: buildExpenseData(input) }));
-  const people = [...new Set(items.flatMap(({ input }) => [...input.participants, ...input.payerIds]))];
+  const items = entries.map(({ id, input, kind = 'expense' }) => ({ id, ...(kind === 'expense' ? {} : { kind }), documentId: batchDocumentId(batchId, id), input: buildHouseholdDraft(kind, input) }));
+  const people = [...new Set(items.flatMap(({ kind = 'expense', input }) => draftPeople(kind, input)))];
   // Keep the whole atomic request within the existing Rules access-call budget.
   if (people.length > 8) throw new Error('An atomic batch supports up to 8 distinct members. Split it into smaller batches.');
   const fingerprint = await batchFingerprint({ householdId: hid, uid: user.uid, items });
@@ -37,7 +40,7 @@ export async function saveExpenseBatch(request) {
       const { user } = await memberAccess(safe.householdId, tx);
       if (user.uid !== safe.uid) throw Object.assign(new Error('Account changed. This batch was not submitted.'), { code: 'unauthenticated' });
       const snapshots = [];
-      for (const item of safe.items) snapshots.push(await tx.get(recordRef(safe.householdId, 'expenses', item.documentId)));
+      for (const item of safe.items) snapshots.push(await tx.get(recordRef(safe.householdId, draftCollection(item.kind || 'expense'), item.documentId)));
       const status = inventory(snapshots, safe);
       if (status.all && status.matching) return { state: 'saved', alreadySaved: true, ids: snapshots.map((snapshot) => snapshot.id) };
       if (!status.none) throw Object.assign(new Error('Some target records already exist or differ. No new records were written. Check the saved-item status before proceeding; this batch will not be partially recreated.'), { code: 'batch-conflict' });
@@ -47,7 +50,10 @@ export async function saveExpenseBatch(request) {
         if (uid === user.uid) continue;
         if (!(await tx.get(recordRef(safe.householdId, 'members', uid))).exists()) throw Object.assign(new Error('A payer or participant left this household. No expenses were written; membership must be resolved before retrying this confirmed batch.'), { code: 'membership-changed' });
       }
-      for (const item of safe.items) writeExpense(tx, safe.householdId, user, item.documentId, item.input, { batchId: safe.batchId, batchFingerprint: safe.fingerprint });
+      for (const item of safe.items) {
+        const writer = item.kind === 'grocery' ? writeGroceryItem : item.kind === 'bill' ? writeBillDraft : writeExpense;
+        writer(tx, safe.householdId, user, item.documentId, item.input, { batchId: safe.batchId, batchFingerprint: safe.fingerprint });
+      }
       return { state: 'saved', alreadySaved: false, ids: safe.items.map((item) => item.documentId) };
     }, { maxAttempts: 5 });
   } catch (error) {
@@ -70,7 +76,7 @@ export async function checkExpenseBatch(request) {
   return runTransaction(db, async (tx) => {
     await memberAccess(safe.householdId, tx);
     const snapshots = [];
-    for (const item of safe.items) snapshots.push(await tx.get(recordRef(safe.householdId, 'expenses', item.documentId)));
+    for (const item of safe.items) snapshots.push(await tx.get(recordRef(safe.householdId, draftCollection(item.kind || 'expense'), item.documentId)));
     const status = inventory(snapshots, safe);
     return { state: status.none ? 'none' : status.all && status.matching ? 'saved' : 'conflict', ids: status.existing.map((snapshot) => snapshot.id), matching: status.matching };
   });

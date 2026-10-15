@@ -144,7 +144,7 @@ export function duplicateExpenseGroups(items) {
   const groups = new Map();
   for (const item of items.filter((entry) => !entry.skipped)) {
     const input = item.input;
-    const signature = JSON.stringify([normalize(input.title), input.totalPaise, input.date, Object.entries(input.payers || {}).sort(), input.participants?.slice().sort(), input.splitMethod, input.splitDetail ? Object.entries(input.splitDetail).sort() : null]);
+    const signature = JSON.stringify([item.kind || 'expense', normalize(input.title || input.name), input.totalPaise ?? input.expectedPaise, input.date || input.dueDate, input.quantity, input.unit, input.assignedTo, input.recurrence, Object.entries(input.payers || {}).sort(), input.participants?.slice().sort(), input.splitMethod, input.splitDetail ? Object.entries(input.splitDetail).sort() : null]);
     groups.set(signature, [...(groups.get(signature) || []), item.id]);
   }
   return [...groups.values()].filter((group) => group.length > 1);
@@ -155,7 +155,9 @@ export function batchDocumentId(batchId, itemId) {
   return `batch_${batchId}_${itemId}`;
 }
 export async function batchFingerprint({ householdId, uid, items }) {
-  const canonical = items.map(({ id, input }) => ({ id, ...input, payers: Object.fromEntries(Object.entries(input.payers).sort()), shares: Object.fromEntries(Object.entries(input.shares).sort()), participants: [...input.participants].sort(), payerIds: [...input.payerIds].sort(), splitDetail: input.splitDetail ? Object.fromEntries(Object.entries(input.splitDetail).sort()) : null }));
+  // Preserve v1 expense-only fingerprints so an already confirmed old batch
+  // can still check/retry after this release, without a migration.
+  const canonical = items.map(({ id, input, kind }) => kind && kind !== 'expense' ? { id, kind, ...input, ...(input.participants ? { participants: [...input.participants].sort() } : {}) } : ({ id, ...input, payers: Object.fromEntries(Object.entries(input.payers).sort()), shares: Object.fromEntries(Object.entries(input.shares).sort()), participants: [...input.participants].sort(), payerIds: [...input.payerIds].sort(), splitDetail: input.splitDetail ? Object.fromEntries(Object.entries(input.splitDetail).sort()) : null }));
   const bytes = new TextEncoder().encode(JSON.stringify({ householdId, uid, items: canonical }));
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

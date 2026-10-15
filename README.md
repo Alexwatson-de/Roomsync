@@ -13,21 +13,38 @@ Cloud Functions, phone/SMS auth, external avatar API or other paid service is
 used. Free does not mean unlimited: monitor Auth/Firestore/Hosting quotas.
 Official plan details: <https://firebase.google.com/docs/projects/billing/firebase-pricing-plans>.
 
-## AI Quick Add: batch expense review
+## AI Quick Add: Gemini + correct household section routing
 
 On **Expenses**, use **AI Quick Add** instead of the former single-record toolbar
 chat. Example: `I paid 2500 for groceries, 300 for electricity, and 800 for dinner yesterday.`
-Each expense gets a separate editable modal (**Expense 1 of 3**) with Previous/
+Each record gets a separate editable modal (**Expense 1 of 3**) with Previous/
 Next, Skip, Remove, progress and clarification notes. A final summary lists all
-included records and exact shares. **Only Add All Expenses saves anything**.
+included destinations and exact expense shares. **Only Add All Expenses / Add All Records saves anything**.
 
-No AI model, API key or backend is currently configured. The modal says this
-explicitly and uses **free local parsing**, not an LLM or general AI. Unknown
-amounts/dates/payers/splits stay blank for review; optional today/equal-household
-defaults apply only when explicitly enabled. Common rupee/category/name/date/
-split formats are supported; every extracted value remains editable. Actual
-model parsing would need a separately approved secure backend/provider. No API
-secrets, paid dependencies, Storage or billing changes were introduced.
+**Gemini is configured server-side in Vercel**, using `gemini-3.1-flash-lite`.
+The owner-supplied key is a server Secret (`GEMINI_API_KEY`), never a `VITE_`
+variable or frontend credential. A protected `/api/quick-add` endpoint verifies
+Firebase ID token/signature and current-household membership before a read-only
+model call. No Admin credential or database write occurs on the AI server.
+
+The review step has a **Save this record to** selector:
+- **Groceries**: planned shopping-list items (e.g. `Add 2 kg rice to my list`).
+- **Bills**: upcoming unpaid bill reminders/templates (e.g. `Create electricity bill ₹300 due tomorrow monthly`).
+- **Expenses**: money already paid/spent (e.g. `I paid ₹800 for dinner yesterday`).
+
+Paid groceries are still expenses for balances; a Groceries expense category
+does not silently create a shopping-list item. You can correct the proposed
+destination before confirming. A mixed request can save to all three collections
+atomically without counting bill templates/shopping plans as money spent.
+
+Before parsing with Gemini, explicitly consent to sending the request and
+current member display names to Google. Gemini gets no auth token, API key,
+UID/email or ledger/history as prompt context. Do not submit sensitive information.
+Provider data terms, availability, free quota limits and Vercel function
+allowances apply. No billing plan was changed and no paid dependency/Storage
+was introduced. Rotate/restrict the key exposed in chat; replace only the Vercel
+server secret. Local parsing remains explicitly selectable; failures never
+silently pretend local output is Gemini. Every model suggestion needs review.
 
 Up to 8 expenses/8 distinct members are confirmed as **one atomic Firestore
 transaction**, including normal activity/notifications. Stable IDs, a confirmed
@@ -38,7 +55,8 @@ for safe reload/retry; raw requests and unconfirmed drafts are not persisted.
 Manual expense creation and other household forms remain available. Security
 rules/indexes and existing data were not changed for this feature.
 
-See [batch syntax, failure recovery, AI configuration caveat and changed files](docs/expense-batches.md).
+See [Gemini security, section routing, setup and changed files](docs/gemini-quick-add.md)
+and [batch confirmation/recovery behavior](docs/expense-batches.md).
 
 ## Generated avatars and full-viewport modals
 
@@ -122,12 +140,12 @@ No Storage setup, Blaze upgrade or billing attachment is part of setup.
 
 Latest checks for this change:
 
-- **100 unit tests**: 22 batch/parser/identity tests, 31 reused single-clause parser tests, the existing 40 calculation tests and 7 avatar tests covering
+- **117 unit/server tests**: 11 secure endpoint/provider/token tests, 6 destination/normalization tests, 22 batch/parser/identity tests, 31 reused single-clause parser tests, the existing 40 calculation tests and 7 avatar tests covering
   initials/Unicode, deterministic defaults, supported styles/colors, legacy
   profile preservation, invalid enum handling and text contrast.
 - **33 Firestore rule tests**: existing financial/privacy checks plus avatar
   self-edit, legacy-field preservation and invalid/cross-user edit denials.
-- **15 browser workflows** using only local Auth + Firestore emulators:
+- **19 browser workflows** using only local Auth + Firestore emulators:
   registration/login, profile styling and persistence across reload/sign-in,
   existing/new households, real-time shared avatar changes, missing-profile
   defaults without migration, legacy image/custom-field preservation, no Storage
@@ -140,6 +158,10 @@ Latest checks for this change:
   lost-acknowledgement reload/retry, concurrent maximum-size submissions,
   membership change rejection and household-scoped identities. No AI requests
   or real financial data are involved.
+  Four additional Gemini-routing workflows mock provider responses while using
+  real emulator persistence/rules: mixed destination saves, section corrections,
+  explicit consent, quota errors/local fallback and mixed safe retry. A real
+  Gemini provider extraction was also tested separately with synthetic data.
 
 ```bash
 npm test

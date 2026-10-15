@@ -14,6 +14,12 @@ export async function createBill(hid, input) {
   writeEvent(batch, hid, user, `bill_created_${id}`, 'bill_created', { refId: id, summary: `${user.displayName || user.email} created "${bill.name}"` }, [bill.assignedTo], 'Bill assigned');
   await batch.commit(); return id;
 }
+export function writeBillDraft(tx, hid, user, id, input, metadata = {}) {
+  // Upcoming bill only, using the same normal schema/recurrence helper.
+  const bill = billRecord(user, input, id, input.dueDate);
+  tx.set(recordRef(hid, 'bills', id), { ...bill, ...metadata });
+  writeEvent(tx, hid, user, `bill_created_${id}`, 'bill_created', { refId: id, summary: `${user.displayName || user.email} created "${bill.name}"` }, [bill.assignedTo], 'Bill assigned');
+}
 export async function updateBill(hid, id, patch) {
   const allowed = Object.fromEntries(Object.entries(patch).filter(([key]) => ['name', 'category', 'expectedPaise', 'dueDate', 'assignedTo', 'splitMethod', 'splitDetail', 'participants', 'notes', 'archived'].includes(key)));
   await updateDoc(recordRef(hid, 'bills', id), { ...allowed, updatedAt: serverTimestamp() });

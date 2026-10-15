@@ -1,5 +1,13 @@
 # AI Quick Add — multiple expense drafts, individual review, atomic save
 
+> **Updated integration:** Gemini is now configured through a protected Vercel
+> server endpoint, and draft records can be routed to Groceries, Bills or Expenses
+> using an editable destination selector. The original local-parser-only notes
+> below describe the initial batch release; atomic confirmation/retry behavior
+> remains. See [the current Gemini integration guide](gemini-quick-add.md) for
+> active configuration, privacy, routing, tests and changed files. Production
+> Gemini is real; local mode is still explicitly selectable, never disguised.
+
 ## What is and isn't configured
 
 The Expenses page has an **AI Quick Add** button, replacing the old toolbar

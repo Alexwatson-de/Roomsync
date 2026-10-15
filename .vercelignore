@@ -12,6 +12,7 @@ playwright*.js
 vitest*.js
 scripts
 src/**/__tests__
+server/**/__tests__
 *.log
 *.pem
 *.key

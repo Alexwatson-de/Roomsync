@@ -1,5 +1,5 @@
 // Groceries — shared shopping list with purchase → optional expense link.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useHousehold } from '../context/HouseholdContext.jsx';
 import { useGroceryItems } from '../hooks/useHouseholdData.js';
@@ -162,9 +162,9 @@ export default function Groceries() {
   );
 }
 
-export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave }) {
+export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave, title, editorState, onEditorChange, onPrevious, onSkip, onRemove, submitLabel = 'Save item' }) {
   const seed = initial || draft;
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState(() => editorState || ({
     name: seed?.name || '',
     quantity: seed?.quantity || '',
     unit: seed?.unit || '',
@@ -174,6 +174,8 @@ export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave 
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const editorCallback = useRef(onEditorChange); editorCallback.current = onEditorChange;
+  useEffect(() => { editorCallback.current?.(form); }, [form]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = async (e) => {
@@ -182,6 +184,7 @@ export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave 
     setBusy(true);
     try {
       await onSave({ ...form, assignedTo: form.assignedTo || null });
+      setBusy(false);
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -189,7 +192,7 @@ export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave 
   };
 
   return (
-    <Modal title={initial ? 'Edit item' : 'Add grocery item'} onClose={onClose}>
+    <Modal title={title || (initial ? 'Edit item' : 'Add grocery item')} onClose={onClose}>
       {reviewNote}
       <form onSubmit={submit}>
         <div className="field">
@@ -227,8 +230,11 @@ export function ItemForm({ members, initial, draft, reviewNote, onClose, onSave 
         </div>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-footer">
+          {onPrevious && <button type="button" className="btn btn-secondary" disabled={busy} onClick={onPrevious}>Previous expense</button>}
+          {onSkip && <button type="button" className="btn btn-ghost" disabled={busy} onClick={onSkip}>Skip expense</button>}
+          {onRemove && <button type="button" className="btn btn-ghost" disabled={busy} onClick={onRemove}>Remove expense</button>}
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save item'}</button>
+          <button className="btn" disabled={busy}>{busy ? 'Validating…' : submitLabel}</button>
         </div>
       </form>
     </Modal>

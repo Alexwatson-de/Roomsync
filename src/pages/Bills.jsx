@@ -1,12 +1,13 @@
 // Bills — list + calendar views, recurring generation, mark-paid workflow
 // with optional expense-ledger linking (never double-counted).
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHousehold } from '../context/HouseholdContext.jsx';
 import { useBills } from '../hooks/useHouseholdData.js';
 import { createBill, updateBill, archiveBill, markBillPaid } from '../services/bills.js';
 import { formatPaise, parseAmountToPaise } from '../lib/money.js';
 import { BILL_CATEGORIES } from '../lib/constants.js';
 import { isoDate, billStatus, fromIso } from '../lib/recurrence.js';
+import { buildHouseholdDraft } from '../lib/householdDrafts.js';
 import { Spinner, Modal, EmptyState, MemberSelect } from '../components/ui.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
@@ -238,20 +239,22 @@ function BillCalendar({ bills, today }) {
   );
 }
 
-export function BillForm({ members, initial, draft, reviewNote, onClose, onSave }) {
+export function BillForm({ members, initial, draft, reviewNote, onClose, onSave, title, editorState, onEditorChange, onPrevious, onSkip, onRemove, submitLabel = 'Save bill' }) {
   const seed = initial || draft;
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState(() => editorState || ({
     name: seed?.name || '',
     category: seed?.category || 'Rent',
     amount: Number.isSafeInteger(seed?.expectedPaise) && seed.expectedPaise > 0 ? (seed.expectedPaise / 100).toFixed(2) : '',
     dueDate: seed?.dueDate ?? isoDate(new Date()),
-    recurrence: seed?.recurrence || 'monthly',
+    recurrence: seed?.recurrence ?? 'monthly',
     assignedTo: seed?.assignedTo || '',
     participants: seed?.participants || members.map((m) => m.uid),
     notes: seed?.notes || '',
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const editorCallback = useRef(onEditorChange); editorCallback.current = onEditorChange;
+  useEffect(() => { editorCallback.current?.(form); }, [form]);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   const submit = async (e) => {
@@ -263,7 +266,7 @@ export function BillForm({ members, initial, draft, reviewNote, onClose, onSave 
     if (form.participants.length === 0) return setError('Select at least one participant.');
     setBusy(true);
     try {
-      await onSave({
+      const data = {
         name: form.name,
         category: form.category,
         expectedPaise,
@@ -274,7 +277,10 @@ export function BillForm({ members, initial, draft, reviewNote, onClose, onSave 
         splitDetail: null,
         participants: form.participants,
         notes: form.notes,
-      });
+      };
+      buildHouseholdDraft('bill', data);
+      await onSave(data);
+      setBusy(false);
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -282,7 +288,7 @@ export function BillForm({ members, initial, draft, reviewNote, onClose, onSave 
   };
 
   return (
-    <Modal title={initial ? 'Edit bill' : 'Add bill'} onClose={onClose}>
+    <Modal title={title || (initial ? 'Edit bill' : 'Add bill')} onClose={onClose}>
       {reviewNote}
       <form onSubmit={submit}>
         <div className="form-row">
@@ -311,6 +317,7 @@ export function BillForm({ members, initial, draft, reviewNote, onClose, onSave 
           <div className="field">
             <label>Recurrence</label>
             <select value={form.recurrence} onChange={(e) => set('recurrence', e.target.value)} disabled={!!initial}>
+              <option value="">Choose recurrence</option>
               <option value="one-time">One-time</option>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
@@ -332,8 +339,11 @@ export function BillForm({ members, initial, draft, reviewNote, onClose, onSave 
         </div>
         {error && <p className="error-text">{error}</p>}
         <div className="modal-footer">
+          {onPrevious && <button type="button" className="btn btn-secondary" disabled={busy} onClick={onPrevious}>Previous expense</button>}
+          {onSkip && <button type="button" className="btn btn-ghost" disabled={busy} onClick={onSkip}>Skip expense</button>}
+          {onRemove && <button type="button" className="btn btn-ghost" disabled={busy} onClick={onRemove}>Remove expense</button>}
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save bill'}</button>
+          <button className="btn" disabled={busy}>{busy ? 'Validating…' : submitLabel}</button>
         </div>
       </form>
     </Modal>

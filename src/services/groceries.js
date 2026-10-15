@@ -2,11 +2,14 @@
 import { writeBatch, runTransaction, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, currentUser, memberAccess, recordRef, writeEvent, listenRecords } from './cloudStore.js';
 import { writeExpense, buildExpenseData } from './expenses.js';
-export async function addItem(hid, { name, quantity = '', unit = '', category = 'Miscellaneous', notes = '', assignedTo = null }) {
+export function writeGroceryItem(batch, hid, user, id, { name, quantity = '', unit = '', category = 'Miscellaneous', notes = '', assignedTo = null }, metadata = {}) {
   if (!name?.trim()) throw new Error('Item name is required.');
+  batch.set(recordRef(hid, 'shoppingItems', id), { name: name.trim(), quantity, unit, category, notes, assignedTo, ...metadata, purchased: false, purchasedAt: null, purchasedBy: null, pricePaise: null, paidBy: null, expenseId: null, createdBy: user.uid, createdByName: user.displayName || user.email, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  writeEvent(batch, hid, user, `item_added_${id}`, 'item_added', { refId: id, summary: `${user.displayName || user.email} added "${name}" to the shopping list` });
+}
+export async function addItem(hid, input) {
   const user = currentUser(); const target = recordRef(hid, 'shoppingItems'); const batch = writeBatch(db);
-  batch.set(target, { name: name.trim(), quantity, unit, category, notes, assignedTo, purchased: false, purchasedAt: null, purchasedBy: null, pricePaise: null, paidBy: null, expenseId: null, createdBy: user.uid, createdByName: user.displayName || user.email, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-  writeEvent(batch, hid, user, `item_added_${target.id}`, 'item_added', { refId: target.id, summary: `${user.displayName || user.email} added "${name}" to the shopping list` });
+  writeGroceryItem(batch, hid, user, target.id, input);
   await batch.commit(); return target.id;
 }
 export async function updateItem(hid, id, patch) {
