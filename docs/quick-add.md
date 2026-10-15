@@ -1,5 +1,11 @@
 # Quick Add — type → review → confirm
 
+> **Historical feature documentation.** The single-action toolbar chat described
+> below has been replaced by **Expenses → AI Quick Add**, a sequential batch
+> expense review wizard. Its former UI/test files were removed. The pure
+> single-clause parser remains reused internally. See the current
+> [batch expense implementation and setup caveats](expense-batches.md).
+
 Open **Quick Add** in the application toolbar after signing in and selecting a
 household. It is a chat-style **local text parser**, not a configured AI/LLM.
 There is no AI API call, model download, key, paid provider or billing dependency.

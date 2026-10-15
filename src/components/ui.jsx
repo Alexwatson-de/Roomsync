@@ -124,7 +124,7 @@ export function MemberSelect({ members, selected, onChange, label = 'Participant
             onChange={() => toggle(m.uid)}
           />
           <Avatar profile={m} />
-          <span>{m.displayName}</span>
+          <span>{m.displayName}{members.filter((other) => other.displayName === m.displayName).length > 1 ? ` · ${m.uid.slice(0, 6)}` : ''}</span>
         </label>
       ))}
     </div>

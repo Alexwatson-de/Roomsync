@@ -13,34 +13,32 @@ Cloud Functions, phone/SMS auth, external avatar API or other paid service is
 used. Free does not mean unlimited: monitor Auth/Firestore/Hosting quotas.
 Official plan details: <https://firebase.google.com/docs/projects/billing/firebase-pricing-plans>.
 
-## Quick Add: chat-style drafts with mandatory review
+## AI Quick Add: batch expense review
 
-Use **Quick Add** in the toolbar to type a household action. Common requests
-open an editable modal to double-check; nothing saves until its final confirmation.
+On **Expenses**, use **AI Quick Add** instead of the former single-record toolbar
+chat. Example: `I paid 2500 for groceries, 300 for electricity, and 800 for dinner yesterday.`
+Each expense gets a separate editable modal (**Expense 1 of 3**) with Previous/
+Next, Skip, Remove, progress and clarification notes. A final summary lists all
+included records and exact shares. **Only Add All Expenses saves anything**.
 
-- `Add 2 kg rice to the grocery list`
-- `I paid ₹1500 for groceries split equally between me, Rahul and Priya`
-- `I paid 1500 for dinner split unequally: me 700, Rahul 800`
-- `I paid 1000 for lunch split percentages: me 60%, Rahul 40%`
-- `I paid 900 for dinner split 2:1 between me and Rahul`
-- `Create a rent bill ₹18000 due tomorrow monthly`
-- `Assign chore clean the kitchen to Rahul tomorrow weekly`
-- `I repaid Rahul ₹500 yesterday`
-- `Mark rent bill as paid` / `Mark milk as purchased for ₹60`
-- `Complete chore clean the kitchen`
+No AI model, API key or backend is currently configured. The modal says this
+explicitly and uses **free local parsing**, not an LLM or general AI. Unknown
+amounts/dates/payers/splits stay blank for review; optional today/equal-household
+defaults apply only when explicitly enabled. Common rupee/category/name/date/
+split formats are supported; every extracted value remains editable. Actual
+model parsing would need a separately approved secure backend/provider. No API
+secrets, paid dependencies, Storage or billing changes were introduced.
 
-**This is free local text parsing, not an AI/LLM service.** No AI keys, network
-inference, external provider, billing upgrade or new dependency is required.
-It supports common English command formats, not arbitrary conversation. Ambiguous
-member names require selection; unsupported/missing facts are flagged for review.
-Chat text stays in tab memory, resets between households/users, and is not silently
-logged to Firestore. Normal forms remain available.
+Up to 8 expenses/8 distinct members are confirmed as **one atomic Firestore
+transaction**, including normal activity/notifications. Stable IDs, a confirmed
+payload fingerprint, synchronous click lock and server status checks prevent
+duplicate/partial recreation on concurrent retries or lost acknowledgements.
+Only the explicitly confirmed request is retained in tab-scoped sessionStorage
+for safe reload/retry; raw requests and unconfirmed drafts are not persisted.
+Manual expense creation and other household forms remain available. Security
+rules/indexes and existing data were not changed for this feature.
 
-All four expense splits use the existing paise validators. Existing payment/
-purchase workflows first select a specific open record and explicitly choose
-whether a shared expense is linked; status-only changes do not affect balances.
-Cancellation and opening a draft do not write data. No message moves money or
-changes permissions. See [Quick Add syntax, safety and implementation](docs/quick-add.md).
+See [batch syntax, failure recovery, AI configuration caveat and changed files](docs/expense-batches.md).
 
 ## Generated avatars and full-viewport modals
 
@@ -124,21 +122,24 @@ No Storage setup, Blaze upgrade or billing attachment is part of setup.
 
 Latest checks for this change:
 
-- **78 unit tests**: 31 local Quick Add/parser tests plus the existing 40 calculation tests and 7 avatar tests covering
+- **100 unit tests**: 22 batch/parser/identity tests, 31 reused single-clause parser tests, the existing 40 calculation tests and 7 avatar tests covering
   initials/Unicode, deterministic defaults, supported styles/colors, legacy
   profile preservation, invalid enum handling and text contrast.
 - **33 Firestore rule tests**: existing financial/privacy checks plus avatar
   self-edit, legacy-field preservation and invalid/cross-user edit denials.
-- **11 browser workflows** using only local Auth + Firestore emulators:
+- **15 browser workflows** using only local Auth + Firestore emulators:
   registration/login, profile styling and persistence across reload/sign-in,
   existing/new households, real-time shared avatar changes, missing-profile
   defaults without migration, legacy image/custom-field preservation, no Storage
   requests, desktop/mobile avatar rendering and modal viewport/focus/scroll tests.
   Existing expense, settlement, bill/grocery transaction, recurrence, notification,
   theme and household sharing regression paths remain covered.
-  Five Quick Add workflows additionally verify no writes before confirmation,
-  cancellation, member disambiguation, exact/custom/percentage/share allocations,
-  existing paid/purchased/completed reviews, mobile display and no AI requests.
+  Nine batch workflows additionally verify sequential review, no writes before
+  final confirmation, missing facts, editing/Previous, Skip/Remove, cancellation,
+  mixed dates/payers/splits, duplicate acknowledgement, atomic events/notifications,
+  lost-acknowledgement reload/retry, concurrent maximum-size submissions,
+  membership change rejection and household-scoped identities. No AI requests
+  or real financial data are involved.
 
 ```bash
 npm test

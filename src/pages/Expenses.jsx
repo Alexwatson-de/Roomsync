@@ -8,6 +8,7 @@ import { formatPaise, parseAmountToPaise } from '../lib/money.js';
 import { EXPENSE_CATEGORIES } from '../lib/constants.js';
 import { Spinner, EmptyState, ConfirmDialog, Modal } from '../components/ui.jsx';
 import ExpenseForm from '../components/ExpenseForm.jsx';
+import ExpenseBatchQuickAdd from '../components/ExpenseBatchQuickAdd.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
 export default function Expenses() {
@@ -56,7 +57,7 @@ export default function Expenses() {
     <>
       <div className="section-head">
         <h1>Expenses</h1>
-        <button className="btn" onClick={() => setShowForm(true)}>+ Add expense</button>
+        <div className="quick-actions"><ExpenseBatchQuickAdd key={`${activeId}:${user.uid}`} /><button className="btn" onClick={() => setShowForm(true)}>+ Add expense</button></div>
       </div>
 
       <div className="filters-bar card" style={{ padding: '0.8rem' }}>

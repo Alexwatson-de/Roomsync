@@ -7,7 +7,6 @@ import { useHousehold } from '../context/HouseholdContext.jsx';
 import { logout } from '../services/auth.js';
 import { Avatar } from './ui.jsx';
 import CloudDataBoundary from './CloudDataBoundary.jsx';
-import QuickAdd from './QuickAdd.jsx';
 
 const NAV = [
   { to: '/', label: 'Dashboard', icon: '▦', end: true },
@@ -89,7 +88,6 @@ export default function Layout({ children }) {
         <div className="app-toolbar">
           <span className="eyebrow">Your home, in sync</span>
           <div className="toolbar-controls">
-            <QuickAdd key={`${activeId}:${user?.uid}`} />
             <span className="connection-pill"><span className="connection-dot" />{usingEmulators ? 'Test emulator' : 'Firebase workspace'}</span>
             <ThemeToggle />
           </div>

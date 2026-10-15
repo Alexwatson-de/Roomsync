@@ -2,27 +2,29 @@
 // All validation happens on integer paise; the preview shows the exact
 // computed shares so users see where remainder paise land.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, MemberSelect, Amount } from './ui.jsx';
 import { parseAmountToPaise, formatPaise } from '../lib/money.js';
 import { computeShares } from '../lib/splits.js';
 import { EXPENSE_CATEGORIES } from '../lib/constants.js';
 import { isoDate } from '../lib/recurrence.js';
+import { buildExpenseData } from '../lib/expenseData.js';
 
-export default function ExpenseForm({ members, initial, draft, reviewNote, onSave, onClose, title = 'Add expense' }) {
+export default function ExpenseForm({ members, initial, draft, reviewNote, onSave, onClose, title = 'Add expense', editorState, onEditorChange, onPrevious, onSkip, onRemove, submitLabel = 'Save expense', closeAfterSave = true }) {
   const seed = initial || draft;
-  const [form, setForm] = useState(() => ({
+  const [form, setForm] = useState(() => editorState?.form || ({
     title: seed?.title || '',
     amount: Number.isSafeInteger(seed?.totalPaise) && seed.totalPaise > 0 ? (seed.totalPaise / 100).toFixed(2) : '',
     date: seed?.date ?? isoDate(new Date()),
     category: seed?.category || 'Groceries',
     paidBy: seed ? Object.keys(seed.payers || {})[0] || '' : members[0]?.uid || '',
     participants: seed?.participants || members.map((m) => m.uid),
-    splitMethod: seed?.splitMethod || 'equal',
+    splitMethod: seed?.splitMethod ?? 'equal',
     description: seed?.description || '',
   }));
   // Per-member inputs for custom (₹), percentage (%), shares (int)
   const [detailInputs, setDetailInputs] = useState(() => {
+    if (editorState?.detailInputs) return editorState.detailInputs;
     const init = {};
     if (seed?.splitDetail) {
       for (const [uid, v] of Object.entries(seed.splitDetail)) {
@@ -34,6 +36,9 @@ export default function ExpenseForm({ members, initial, draft, reviewNote, onSav
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const editorCallback = useRef(onEditorChange);
+  editorCallback.current = onEditorChange;
+  useEffect(() => { editorCallback.current?.({ form, detailInputs }); }, [form, detailInputs]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -88,9 +93,7 @@ export default function ExpenseForm({ members, initial, draft, reviewNote, onSav
       const detail = buildDetail();
       // validate split up-front for a clear error message
       computeShares(form.splitMethod, totalPaise, form.participants, detail);
-      setBusy(true);
-      await onSave(
-        {
+      const input = {
           title: form.title,
           category: form.category,
           date: form.date,
@@ -100,9 +103,13 @@ export default function ExpenseForm({ members, initial, draft, reviewNote, onSav
           splitMethod: form.splitMethod,
           splitDetail: detail,
           description: form.description,
-        }
-      );
-      onClose();
+        };
+      buildExpenseData(input);
+      if ([...input.participants, ...Object.keys(input.payers)].some((uid) => !members.some((member) => member.uid === uid))) throw new Error('Select current household members only.');
+      setBusy(true);
+      await onSave(input);
+      if (closeAfterSave) onClose();
+      else setBusy(false);
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -143,7 +150,7 @@ export default function ExpenseForm({ members, initial, draft, reviewNote, onSav
             <option value="">Choose payer</option>
             {members.map((m) => (
               <option key={m.uid} value={m.uid}>
-                {m.displayName}
+                {m.displayName}{members.filter((other) => other.displayName === m.displayName).length > 1 ? ` · ${m.uid.slice(0, 6)}` : ''}
               </option>
             ))}
           </select>
@@ -208,11 +215,14 @@ export default function ExpenseForm({ members, initial, draft, reviewNote, onSav
 
         {error && <p className="error-text">{error}</p>}
         <div className="modal-footer">
+          {onPrevious && <button type="button" className="btn btn-secondary" onClick={onPrevious} disabled={busy}>Previous expense</button>}
+          {onSkip && <button type="button" className="btn btn-ghost" onClick={onSkip} disabled={busy}>Skip expense</button>}
+          {onRemove && <button type="button" className="btn btn-ghost" onClick={onRemove} disabled={busy}>Remove expense</button>}
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             Cancel
           </button>
           <button className="btn" disabled={busy}>
-            {busy ? 'Saving…' : 'Save expense'}
+            {busy ? (closeAfterSave ? 'Saving…' : 'Validating…') : submitLabel}
           </button>
         </div>
       </form>
