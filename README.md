@@ -161,16 +161,22 @@ Developer settings → Personal access tokens.** Do not place the replacement in
 chat, source files, a remote URL, commit messages or command history. Authenticate
 using GitHub CLI browser login or your system's secure Git credential flow.
 
-The destination repository URL is still required. No remote push has occurred.
-After secure authentication and choosing a repository:
+Published to **<https://github.com/Alexwatson-de/Roomsync>**, branch `main`.
+The initial application commit `7c33fdd` was pushed successfully and its full
+commit ID matched the remote branch. Publication used the machine's configured
+Git credential flow; no chat token was embedded in source or the remote URL.
+The committed-file scan passed for access tokens, private keys and excluded
+runtime/generated files. No remote history was overwritten.
+
+For future updates from this app repository:
 
 ```bash
-git remote add origin https://github.com/OWNER/REPOSITORY.git
-git push -u origin main
+git push origin main
 ```
 
-Choose the intended repository deliberately; no public repository is created
-implicitly and no existing remote history should be overwritten.
+GitHub source publication does not deploy Firebase Hosting or the project's
+security rules/indexes. Those remain separate operations below. CI execution
+results must be checked on GitHub; a successful push alone does not verify CI.
 
 ## Optional Hosting deployment (not performed)
 
