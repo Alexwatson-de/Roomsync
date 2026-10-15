@@ -9,6 +9,7 @@ import { updateHousehold, deleteHousehold } from '../services/households.js';
 import { Avatar, ConfirmDialog, Modal } from '../components/ui.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { ThemeToggle } from '../context/ThemeContext.jsx';
+import { uploadsEnabled } from '../firebase.js';
 
 export default function Settings() {
   const { user } = useAuth();
@@ -77,7 +78,8 @@ export default function Settings() {
             <Avatar name={user?.displayName || user?.email} photoURL={user?.photoURL} size="lg" />
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Profile picture</label>
-              <input type="file" accept="image/*" onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={!uploadsEnabled} onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
+              {!uploadsEnabled && <span className="hint">Photo uploads need Firebase Storage setup. Your display name can still be updated.</span>}
             </div>
           </div>
           <div className="form-row">

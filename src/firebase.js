@@ -14,13 +14,16 @@ const config = {
 };
 export const firebaseConfigured = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
 export const usingEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
+// No default bucket exists on the live Spark project yet. Do not let optional
+// uploads hang or pretend they work. Enable only after bucket/rules deployment.
+export const uploadsEnabled = usingEmulators || import.meta.env.VITE_FIREBASE_UPLOADS_ENABLED === 'true';
 export const firebaseProjectId = config.projectId;
 export const app = firebaseConfigured ? initializeApp(config) : null;
 export const auth = app ? getAuth(app) : null;
 // Memory cache avoids leaving another account's private records in IndexedDB
 // on shared household devices. Authentication still persists via Firebase Auth.
 export const db = app ? getFirestore(app) : null;
-export const storage = app && config.storageBucket ? getStorage(app) : null;
+export const storage = app && config.storageBucket && uploadsEnabled ? getStorage(app) : null;
 if (app && usingEmulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8089);

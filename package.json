@@ -11,6 +11,10 @@
     "test:watch": "vitest",
     "test:browser": "npx --yes firebase-tools@13 emulators:exec --only auth,firestore,storage --project demo-roomsync 'playwright test --config playwright.firebase.config.js'",
     "check:firebase": "node scripts/check-firebase.mjs",
+    "check:firebase:admin": "node scripts/firebase-admin-status.mjs --report",
+    "deploy:firestore": "npx --yes firebase-tools@13 deploy --project roomsync-9dceb --only firestore --non-interactive",
+    "deploy:storage": "npx --yes firebase-tools@13 deploy --project roomsync-9dceb --only storage --non-interactive",
+    "test:storage": "npx --yes firebase-tools@13 emulators:exec --only firestore,storage --project demo-roomsync-storage-tests 'vitest run --config vitest.storage.config.js'",
     "test:rules": "npx --yes firebase-tools@13 emulators:exec --only firestore --project roomsync-rules-test 'vitest run --config vitest.rules.config.js'"
   },
   "dependencies": {

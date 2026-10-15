@@ -6,7 +6,6 @@ service cloud.firestore {
     function isMember(hid) { return signedIn() && exists(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid)); }
     function memberRole(hid) { return get(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid)).data.role; }
     function isAdmin(hid) { return isMember(hid) && memberRole(hid) in ['owner', 'admin']; }
-    function isOwner(hid) { return isMember(hid) && memberRole(hid) == 'owner'; }
     function immutableAuthor() { return request.resource.data.createdBy == resource.data.createdBy; }
     function amount(n) { return n is int && n >= 0 && n <= 10000000000; }
 

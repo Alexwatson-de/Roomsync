@@ -1,32 +1,28 @@
 rules_version = '2';
-
-// RoomSync Storage rules: avatars are user-owned; receipts are household-scoped.
+// Deploy only after the project has a real Firebase Storage bucket.
+// Members read household receipts; only the uploader can create/delete their
+// own receipt paths. Random receipt IDs are immutable to prevent replacement.
 service firebase.storage {
   match /b/{bucket}/o {
-
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function isMember(hid) {
+      return signedIn() && firestore.exists(/databases/(default)/documents/households/$(hid)/members/$(request.auth.uid));
     }
-
-    function isHouseholdMember(hid) {
-      return signedIn()
-        && firestore.exists(/databases/(default)/documents/households/$(hid)/members/$(request.auth.uid));
+    function validImage() {
+      return request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     }
-
-    // User avatars: owner writes, any signed-in user reads (shown next to names).
-    match /users/{uid}/{file} {
+    match /users/{uid}/avatar {
       allow read: if signedIn();
-      allow write: if signedIn() && request.auth.uid == uid
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+      allow create, update: if signedIn() && request.auth.uid == uid && validImage();
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
-
-    // Receipts and household images: members only, images up to 10 MB.
-    match /households/{hid}/{allPaths=**} {
-      allow read: if isHouseholdMember(hid);
-      allow write: if isHouseholdMember(hid)
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+    match /households/{hid}/receipts/{uid}/{receiptId} {
+      allow read: if isMember(hid);
+      allow create: if resource == null && isMember(hid) && request.auth.uid == uid && validImage();
+      allow update: if false;
+      allow delete: if isMember(hid) && request.auth.uid == uid;
     }
+    // No broad catch-all write permission: unknown paths are denied.
   }
 }

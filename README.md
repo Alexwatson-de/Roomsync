@@ -40,15 +40,35 @@ preferences (theme and selected household) remain in application localStorage.
 
 ## Current live-project status
 
-The supplied web configuration has been copied from the example to the ignored
-`.env.local` file. The example is sanitized for source control. Live read-only
-preflight confirmed valid Auth configuration, localhost authorization and
-Firestore denying an unauthenticated read. Firestore initially reported disabled;
-a later check found it reachable. **This does not prove authenticated financial
-workflows or that the repository rules are deployed.**
+Verified on **2026-10-15**, project `roomsync-9dceb`:
 
-Firebase CLI currently has no authenticated administrator. No production
-account/financial test records were created and no deployment was claimed.
+- Firebase CLI access is working. Email/password sign-in is enabled and
+  localhost plus the two Firebase Hosting domains are authorized.
+- The existing **(default) Native Firestore database** is active in `nam5`.
+  It was not recreated, moved, or emptied.
+- **Firestore rules and indexes deployed successfully.** The active released
+  rules' content hash matches this repository's rules file.
+- Both composite indexes are **READY**: expenses `(deleted ASC, date DESC)`
+  and notifications `(recipientId ASC, createdAt DESC)`. The collection-group
+  `members.uid` index is also **READY**.
+- A live browser workflow with two disposable test accounts passed: registration,
+  household bootstrap, invitation claim, membership isolation, denied role
+  escalation, real-time expenses, edit/soft-delete, exact paise totals,
+  settlements/confirmation/reversal, bill and grocery ledger links without
+  duplicate retries, chore rotation/recurrence, reports, notifications and
+  refresh/sign-in persistence. **All generated test households, invites,
+  profiles and accounts were removed by a scoped administrator cleanup.**
+- **Storage is not ready:** its API was enabled, but there is no default bucket.
+  Billing is disabled and the attempt to create a default bucket returned
+  permission denied. Storage rules cannot deploy until a bucket is initialized.
+  The app disables optional image uploads with a useful explanation instead of
+  pretending they work. Financial and household features still work normally.
+- No paid billing plan, Cloud Function or public Hosting release was enabled.
+
+The ignored `.env.local` holds the supplied web identifiers; the example is a
+sanitized template. A safe read-only administrator snapshot is saved under
+`artifacts/firebase/status.json`. This is a dated verification report, not a
+guarantee that future console changes cannot alter the configuration.
 
 ## Install and preview
 
@@ -66,31 +86,40 @@ an Admin key, service-account private key or access token in a `VITE_` variable.
 
 ```bash
 npm run check:firebase    # read-only service/configuration preflight
+npm run check:firebase:admin # read-only rules/index/Auth/billing/bucket check
 ```
 
-## Finish Firebase setup
+## Remaining Firebase setup: optional image uploads
 
-1. In Firebase Console, select project `roomsync-9dceb`.
-2. Authentication → Sign-in method: enable **Email/Password**. Keep localhost
-   in Authentication → Settings → Authorized domains.
-3. Firestore Database: create the **(default)** database in production mode if
-   it does not exist. Do not use public/test-mode security rules.
-4. Storage: enable it for receipts/profile uploads; configure any billing
-   required by Firebase for your project before relying on uploads.
-5. Authenticate the CLI through the browser on this machine:
+Auth, the Firestore database, its rules and required indexes are deployed and
+verified. Collections/documents are created by normal app actions; no fake
+dashboard data or manual collection seeding is needed.
+
+The only remaining core-service setup is **Firebase Storage**:
+
+1. A project/billing owner must explicitly enable the **Blaze** plan and required
+   billing access. This agent did not change billing or attach a billing account.
+2. Open <https://console.firebase.google.com/project/roomsync-9dceb/storage>
+   and choose **Get started** to initialize the default bucket. The attempted
+   API setup was denied, so use an account with Storage creation permission.
+3. Use a region appropriate for the existing database/users. Confirm the
+   actual bucket name in the console and match `VITE_FIREBASE_STORAGE_BUCKET`
+   in `.env.local`; don't assume a bucket exists from the web config alone.
+4. Deploy the prepared, emulator-tested Storage rules:
 
    ```bash
-   npx --yes firebase-tools@13 login
-   npx --yes firebase-tools@13 deploy --project roomsync-9dceb --only firestore
-   # Once Storage is enabled:
-   npx --yes firebase-tools@13 deploy --project roomsync-9dceb --only storage
+   npm run deploy:storage
    ```
 
-6. Wait for indexes to finish building. Required indexes are defined in
-   `firestore.indexes.json`: expense deleted/date, notification recipient/time,
-   and collection-group membership uid. Index errors preserve the console link.
-7. Test two real test accounts, invitation joining, a dummy expense and an
-   upload before using real records. Delete or reverse test financial records.
+5. Set `VITE_FIREBASE_UPLOADS_ENABLED=true` in `.env.local`, restart the dev
+   server (or rebuild), and test a small receipt/photo upload with a test account.
+   No billing or upload feature is enabled merely by setting this flag.
+
+To redeploy Firestore configuration in future, use `npm run deploy:firestore`.
+The checked-in `.firebaserc` binds ordinary CLI commands to `roomsync-9dceb`.
+Do not disable security rules to make queries/uploads succeed. New default
+Storage buckets require the Blaze plan; see the official Firebase Storage
+billing-change FAQ: <https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024>.
 
 No Cloud Functions are currently deployed or required by normal CRUD. Permanent
 recursive household deletion and ownership transfer are deliberately unavailable
@@ -100,11 +129,16 @@ Account deletion is allowed only after household memberships are resolved.
 
 ## Verification
 
-Latest result: **40 calculation tests, 30 Firestore security tests and 3 Firebase-emulator browser workflows passed; production build succeeded.** These results do not imply production rule deployment or live authenticated workflow verification.
+Latest result: **40 calculation tests, 30 Firestore security tests, 11 Storage
+security tests, 3 Firebase-emulator browser workflows and 1 scoped live-Firebase
+browser workflow passed; production build succeeded.** Firestore deployment and
+live database workflows were separately verified; live uploads remain blocked
+by the missing bucket/billing.
 
 ```bash
 npm test                         # 40 calculation tests
 npm run test:rules               # Firestore security tests (isolated emulator)
+npm run test:storage             # Storage privacy/MIME/size/path emulator tests
 npx playwright install chromium # first browser run only
 npm run test:browser             # 3 Firebase emulator browser workflows
 npm run build
@@ -121,6 +155,20 @@ chore recurrence, grocery links, receipt upload, an invitation between two
 independent browser contexts, real-time synchronization, both themes, clickable
 summary cards, mobile navigation and reduced-motion behavior. Screenshots and
 traces are local artifacts under `artifacts/tests/` and excluded from Git.
+
+Live integration testing is separate, opt-in and **not part of CI**:
+
+```bash
+ROOMSYNC_LIVE_TESTS=1 npx playwright test --config playwright.live.config.js
+# Then remove only those disposable records using the exact generated manifest:
+node scripts/cleanup-live-tests.mjs artifacts/tests/live-firebase-ROOMSYNC-TEST-TIMESTAMP-ID.json
+```
+
+The live check records the exact generated account/household/invite IDs in
+ignored manifests. Cleanup requires the existing Firebase CLI administrator
+login and verifies the unique test marker before deleting anything. Never pass
+real household records to this cleanup workflow. Credentials stay in CLI-managed
+storage/in-process memory, not in frontend files or committed artifacts.
 
 Calculation tests cover paise allocation, all split methods, multiple payers,
 partial settlements and reversals. Security tests also reject mismatched totals,
@@ -144,8 +192,8 @@ backend; use the commands above rather than the old local Playwright config.
   deleting any records. Do not treat this as a complete production release yet.
 - No scheduled email/push reminders or AI integration. Notifications are in-app;
   reset emails are handled by Firebase Authentication.
-- Live Auth/Firestore/Storage end-to-end verification still requires enabled
-  services and deployment of the supplied rules/indexes by the project owner.
+- Live Storage uploads remain unverified/unavailable until the owner completes
+  bucket and billing setup. Storage rules are prepared and tested, not deployed.
 - Firebase download URLs are bearer links. Share receipt links privately.
 
 ## GitHub publication
@@ -174,9 +222,9 @@ For future updates from this app repository:
 git push origin main
 ```
 
-GitHub source publication does not deploy Firebase Hosting or the project's
-security rules/indexes. Those remain separate operations below. CI execution
-results must be checked on GitHub; a successful push alone does not verify CI.
+GitHub publication itself does not deploy Firebase: Firestore rules/indexes
+were deployed separately as recorded above. Hosting remains optional and has
+not been published. Check CI execution results on GitHub separately.
 
 ## Optional Hosting deployment (not performed)
 

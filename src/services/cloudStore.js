@@ -9,7 +9,7 @@ export function currentUser() {
 }
 export const recordRef = (hid, kind, id) => id ? doc(db, 'households', hid, kind, id) : doc(collection(db, 'households', hid, kind));
 export function listenRecords(hid, kind, callback, onError, field = 'createdAt', direction = 'desc') {
-  return onSnapshot(query(collection(db, 'households', hid, kind), orderBy(field, direction)), (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id }))), onError);
+  return onSnapshot(query(collection(db, 'households', hid, kind), orderBy(field, direction)), { includeMetadataChanges: true }, (snap) => callback(snap.docs.map((d) => ({ ...d.data(), id: d.id })), snap.metadata), onError);
 }
 export async function memberAccess(hid, transaction) {
   const user = currentUser();
@@ -32,7 +32,7 @@ export function writeEvent(writer, hid, user, id, type, { refId = null, summary,
   }
 }
 export async function uploadImage(path, file) {
-  if (!storage) throw new Error('Firebase Storage is not configured. Enable it to upload images.');
+  if (!storage) throw new Error('Uploads are unavailable: enable Firebase Storage with the required billing/permissions, deploy Storage rules, then enable uploads for this app. You can save records without an image.');
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) throw new Error('Choose a PNG, JPEG, WebP or GIF image.');
   if (file.size > 5 * 1024 * 1024) throw new Error('Images must be smaller than 5 MB.');
   const target = ref(storage, path);

@@ -1,0 +1,57 @@
+{
+  "checkedAt": "2026-10-15T15:45:22.915Z",
+  "projectId": "roomsync-9dceb",
+  "authentication": {
+    "emailPasswordEnabled": true,
+    "authorizedDomains": [
+      "localhost",
+      "roomsync-9dceb.firebaseapp.com",
+      "roomsync-9dceb.web.app"
+    ]
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "nam5",
+    "type": "FIRESTORE_NATIVE",
+    "rulesMatchLocal": true,
+    "ruleset": "projects/roomsync-9dceb/rulesets/229fe373-66cf-43ac-ab8c-c2d045071dce",
+    "indexes": [
+      {
+        "collectionGroup": "expenses",
+        "fields": [
+          {
+            "fieldPath": "deleted",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "date",
+            "order": "DESCENDING"
+          }
+        ],
+        "state": "READY"
+      },
+      {
+        "collectionGroup": "notifications",
+        "fields": [
+          {
+            "fieldPath": "recipientId",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "createdAt",
+            "order": "DESCENDING"
+          }
+        ],
+        "state": "READY"
+      }
+    ],
+    "membershipIndexState": "READY"
+  },
+  "storage": {
+    "defaultBucketExists": false,
+    "bucket": null,
+    "billingEnabled": false,
+    "rulesDeployed": false,
+    "note": "No default bucket exists. Storage setup returned permission denied. Blaze billing is disabled; administrator must configure billing/permissions and create a bucket before rules can deploy."
+  }
+}
