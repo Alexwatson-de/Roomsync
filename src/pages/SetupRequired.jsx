@@ -11,13 +11,12 @@ export default function SetupRequired() {
           RoomSync is not connected to Firebase yet. To run the app:
         </p>
         <ol style={{ color: 'var(--text-soft)', lineHeight: 1.7 }}>
-          <li>Create a Firebase project at <strong>console.firebase.google.com</strong>.</li>
+          <li>Create a Firebase project on the free <strong>Spark</strong> plan at <strong>console.firebase.google.com</strong>.</li>
           <li>Enable <strong>Email/Password</strong> in Authentication → Sign-in method.</li>
           <li>Create a <strong>Cloud Firestore</strong> database (production mode).</li>
-          <li>Enable <strong>Storage</strong> if you want receipt and avatar uploads.</li>
           <li>Register a <strong>Web app</strong> in Project settings and copy its config.</li>
           <li>Copy <code>.env.example</code> to <code>.env.local</code> and fill in the values.</li>
-          <li>Deploy the security rules: <code>firebase deploy --only firestore,storage</code>.</li>
+          <li>Deploy the security rules and indexes: <code>firebase deploy --only firestore</code>.</li>
           <li>Restart the dev server.</li>
         </ol>
         <p style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>

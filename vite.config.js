@@ -10,7 +10,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
           charts: ['recharts'],
           react: ['react', 'react-dom', 'react-router-dom'],
         },

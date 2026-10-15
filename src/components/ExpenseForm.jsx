@@ -3,7 +3,6 @@
 // computed shares so users see where remainder paise land.
 
 import { useMemo, useState } from 'react';
-import { uploadsEnabled } from '../firebase.js';
 import { Modal, MemberSelect, Amount } from './ui.jsx';
 import { parseAmountToPaise, formatPaise } from '../lib/money.js';
 import { computeShares } from '../lib/splits.js';
@@ -32,7 +31,6 @@ export default function ExpenseForm({ members, initial, onSave, onClose, title =
     }
     return init;
   });
-  const [receiptFile, setReceiptFile] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -101,8 +99,7 @@ export default function ExpenseForm({ members, initial, onSave, onClose, title =
           splitMethod: form.splitMethod,
           splitDetail: detail,
           description: form.description,
-        },
-        receiptFile
+        }
       );
       onClose();
     } catch (err) {
@@ -204,11 +201,6 @@ export default function ExpenseForm({ members, initial, onSave, onClose, title =
         <div className="field" style={{ marginTop: '0.8rem' }}>
           <label>Description (optional)</label>
           <textarea rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Receipt image (optional)</label>
-          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={!uploadsEnabled} onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
-          {!uploadsEnabled && <span className="hint">Receipt uploads need Firebase Storage setup (Blaze billing and a bucket). Expenses work without an image.</span>}
         </div>
 
         {error && <p className="error-text">{error}</p>}

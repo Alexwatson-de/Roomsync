@@ -2,14 +2,16 @@
 // Bootstrap uses a batch and rules getAfter; joins validate expiry on server.
 import { collection, collectionGroup, doc, getDoc, getDocs, query, where, onSnapshot, writeBatch, runTransaction, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, currentUser, recordRef, memberAccess, writeEvent } from './cloudStore.js';
+import { getAvatarProfile } from './auth.js';
 
 export async function createHousehold({ name, description = '', currency = 'INR' }) {
   const user = currentUser();
   if (!name?.trim()) throw new Error('Household name is required.');
+  const avatar = await getAvatarProfile(user);
   const h = doc(collection(db, 'households'));
   const batch = writeBatch(db);
   batch.set(h, { name: name.trim(), description: description.trim(), currency, imageUrl: null, createdBy: user.uid, createdAt: serverTimestamp(), archived: false });
-  batch.set(recordRef(h.id, 'members', user.uid), { uid: user.uid, householdId: h.id, householdName: name.trim(), displayName: user.displayName || user.email, photoURL: user.photoURL, role: 'owner', joinedAt: serverTimestamp() });
+  batch.set(recordRef(h.id, 'members', user.uid), { uid: user.uid, householdId: h.id, householdName: name.trim(), displayName: user.displayName || user.email, ...avatar, role: 'owner', joinedAt: serverTimestamp() });
   await batch.commit();
   return h.id;
 }
@@ -38,6 +40,7 @@ export async function listInvites(hid) {
 }
 export async function joinHousehold(token) {
   const user = currentUser();
+  const avatar = await getAvatarProfile(user);
   return runTransaction(db, async (tx) => {
     const inviteSnap = await tx.get(doc(db, 'invites', token.trim()));
     if (!inviteSnap.exists()) throw new Error('This invitation is invalid.');
@@ -45,7 +48,7 @@ export async function joinHousehold(token) {
     if (!invite.active || invite.expiresAt <= Date.now()) throw new Error('This invitation has expired or been revoked.');
     const memberRef = recordRef(invite.householdId, 'members', user.uid);
     // No read of a nonmember household is needed before claiming a capability.
-    tx.set(memberRef, { uid: user.uid, householdId: invite.householdId, householdName: invite.householdName, displayName: user.displayName || user.email, photoURL: user.photoURL, role: invite.role, inviteCode: token.trim(), joinedAt: serverTimestamp() });
+    tx.set(memberRef, { uid: user.uid, householdId: invite.householdId, householdName: invite.householdName, displayName: user.displayName || user.email, ...avatar, role: invite.role, inviteCode: token.trim(), joinedAt: serverTimestamp() });
     return invite.householdId;
   });
 }

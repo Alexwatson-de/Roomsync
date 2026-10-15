@@ -1,26 +1,56 @@
 // ui.jsx — shared primitives: Modal, ConfirmDialog, Avatar, EmptyState,
 // Spinner, Badge helpers, MemberSelect.
 
-import { useEffect } from 'react';
+import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { formatPaise } from '../lib/money.js';
+import { resolveAvatar } from '../lib/avatars.js';
 
 export function Modal({ title, onClose, children, footer }) {
+  const dialogRef = useRef(null);
+  const closeRef = useRef(onClose);
+  const titleId = useId();
+  closeRef.current = onClose;
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    const previouslyFocused = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')).filter((el) => el.getClientRects().length);
+    (focusable()[0] || dialog).focus();
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeRef.current(); }
+      if (e.key === 'Tab') {
+        const controls = focusable();
+        const first = controls[0] || dialog;
+        const last = controls.at(-1) || dialog;
+        if (!controls.length || (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement)))) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !dialog.contains(document.activeElement))) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
+  }, []);
+  // Portal escapes the transformed page-content / glass-panel containing
+  // blocks. Fixed overlay must cover the sidebar AND content at any scroll.
+  return createPortal(
     <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-header">
-          <h2>{title}</h2>
+          <h2 id={titleId}>{title}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
         {children}
         {footer && <div className="modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>, document.body
   );
 }
 
@@ -43,16 +73,14 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', danger
   );
 }
 
-export function Avatar({ name, photoURL, size }) {
-  const initials = (name || '?')
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-  const cls = `avatar ${size === 'lg' ? 'avatar-lg' : ''}`;
-  if (photoURL) return <img className={cls} src={photoURL} alt={name} />;
-  return <span className={cls}>{initials}</span>;
+export function Avatar({ name, uid, profile, size }) {
+  const avatar = resolveAvatar({ ...profile, uid: uid || profile?.uid, name: name || profile?.displayName });
+  // Never render legacy photo URLs; no remote images or download/CORS calls.
+  return <span role="img" aria-label={`${name || profile?.displayName || 'User'} avatar`}
+    className={`avatar avatar-${avatar.avatarStyle} ${size === 'lg' ? 'avatar-lg' : ''}`}
+    data-avatar-style={avatar.avatarStyle} data-avatar-color={avatar.avatarColor}
+    data-avatar-uid={uid || profile?.uid || undefined}
+    style={{ '--avatar-background': avatar.background, background: avatar.background, color: '#fff' }}>{avatar.initials}</span>;
 }
 
 export function EmptyState({ icon = '○', title, hint, action }) {
@@ -95,7 +123,7 @@ export function MemberSelect({ members, selected, onChange, label = 'Participant
             checked={selected.includes(m.uid)}
             onChange={() => toggle(m.uid)}
           />
-          <Avatar name={m.displayName} photoURL={m.photoURL} />
+          <Avatar profile={m} />
           <span>{m.displayName}</span>
         </label>
       ))}

@@ -4,13 +4,15 @@ const field = (root, text) => root.locator('.field').filter({ has: root.page().l
 // Match labels exactly, including older forms without htmlFor.
 const input = (root, text) => root.locator('label').filter({ hasText: new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).locator('..').locator('input,select,textarea').first();
 async function register(page, name) {
+  const email = `${name.toLowerCase()}-${Date.now()}@example.test`;
   await page.goto('/register');
   await page.getByLabel('Your name').fill(name);
-  await page.getByLabel('Email', { exact: true }).fill(`${name.toLowerCase()}-${Date.now()}@example.test`);
+  await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
   await page.getByLabel('Confirm', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Set up your household' })).toBeVisible();
+  return { email, uid: await page.evaluate(async () => (await import('/src/firebase.js')).auth.currentUser.uid) };
 }
 async function createHousehold(page) {
   await page.getByLabel('Household name').fill('Cloud Test Flat');
@@ -74,7 +76,7 @@ test('Firebase Auth, household bootstrap, cloud ledger, reload, themes and dashb
   expect(errors).toEqual([]);
 });
 
-test('atomic bill/grocery expense links, idempotent recurrence and receipts in Firebase emulators', async ({ page }) => {
+test('atomic bill/grocery expense links and recurrence work without Storage', async ({ page }) => {
   const errors = []; page.on('pageerror', (e) => errors.push(e.message));
   await register(page, 'Charlie'); await createHousehold(page);
   await page.goto('/bills'); await page.getByRole('button', { name: '+ Add bill', exact: true }).click();
@@ -108,15 +110,14 @@ test('atomic bill/grocery expense links, idempotent recurrence and receipts in F
   await dialog.getByRole('button', { name: 'Confirm purchase', exact: true }).click(); await expect(dialog).toHaveCount(0);
   expect(await records(page, 'expenses')).toHaveLength(2);
   await page.goto('/expenses'); await page.getByRole('button', { name: '+ Add expense', exact: true }).click();
-  dialog = page.getByRole('dialog'); await input(dialog, 'Title').fill('Receipt test'); await input(dialog, 'Amount (₹)').fill('10');
-  await dialog.locator('input[type="file"]').setInputFiles({ name: 'receipt.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+nmQAAAABJRU5ErkJggg==', 'base64') });
-  await dialog.getByRole('button', { name: 'Save expense', exact: true }).click(); await expect(dialog).toHaveCount(0);
-  expect((await records(page, 'expenses')).find((e) => e.title === 'Receipt test').receiptUrl).toContain('127.0.0.1:9199');
+  dialog = page.getByRole('dialog');
+  await expect(dialog.locator('input[type="file"]')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   expect(errors).toEqual([]);
 });
 
 test('independent-device invitation, shared real-time expense, mobile theme and reduced motion', async ({ page, browser }) => {
-  await register(page, 'Owner'); await createHousehold(page);
+  const owner = await register(page, 'Owner'); await createHousehold(page);
   await page.goto('/members'); await page.getByRole('button', { name: 'Invite member', exact: true }).click();
   const dialog = page.getByRole('dialog'); await dialog.getByRole('button', { name: 'Generate invite code', exact: true }).click();
   await expect(dialog.locator('code').first()).toHaveText(/^[a-f0-9]{64}$/);
@@ -127,6 +128,14 @@ test('independent-device invitation, shared real-time expense, mobile theme and 
   await bob.getByLabel('Invite code').fill(token);
   await bob.locator('form').getByRole('button', { name: 'Join household', exact: true }).click();
   await expect(bob.getByRole('heading', { name: 'Cloud Test Flat', exact: true })).toBeVisible();
+  await bob.goto('/members');
+  await page.evaluate(async () => {
+    const { updateUserProfile } = await import('/src/services/auth.js');
+    await updateUserProfile({ displayName: 'Owner', avatarStyle: 'rounded', avatarColor: 'amber' });
+  });
+  const syncedAvatar = bob.locator(`main .avatar[data-avatar-uid="${owner.uid}"]`);
+  await expect(syncedAvatar).toHaveAttribute('data-avatar-style', 'rounded');
+  await expect(syncedAvatar).toHaveAttribute('data-avatar-color', 'amber');
   await bob.goto('/expenses');
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   await addExpense(page, 'Shared electricity', '1200');

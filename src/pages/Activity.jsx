@@ -40,7 +40,7 @@ export default function Activity() {
             const member = members.find((m) => m.uid === a.actorId);
             return (
               <div className="list-row" key={a.id}>
-                <Avatar name={a.actorName} photoURL={member?.photoURL} />
+                <Avatar name={member?.displayName || a.actorName} uid={a.actorId} profile={member} />
                 <div className="grow">
                   <div style={{ fontSize: '0.9rem' }}>{a.summary}</div>
                   <div className="sub">{a.createdAt?.toDate ? a.createdAt.toDate().toLocaleString() : 'just now'}</div>

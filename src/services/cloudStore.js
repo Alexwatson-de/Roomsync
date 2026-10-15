@@ -1,7 +1,6 @@
 // Shared Firestore primitives, not a localStorage database adapter.
 import { collection, doc, getDoc, getDocs, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '../firebase.js';
+import { auth, db } from '../firebase.js';
 export { db, auth, serverTimestamp };
 export function currentUser() {
   if (!auth?.currentUser) throw new Error('Please sign in to Firebase.');
@@ -30,12 +29,4 @@ export function writeEvent(writer, hid, user, id, type, { refId = null, summary,
     if (!recipientId || recipientId === user.uid) continue;
     writer.set(recordRef(hid, 'notifications', `${id}_${recipientId}`), { recipientId, actorId: user.uid, actorName: user.displayName || user.email, type: type.startsWith('chore') ? 'chore' : type.startsWith('bill') ? 'bill' : type.startsWith('settlement') ? 'settlement' : 'expense', refId, title, body: summary, read: false, createdAt: serverTimestamp() });
   }
-}
-export async function uploadImage(path, file) {
-  if (!storage) throw new Error('Uploads are unavailable: enable Firebase Storage with the required billing/permissions, deploy Storage rules, then enable uploads for this app. You can save records without an image.');
-  if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) throw new Error('Choose a PNG, JPEG, WebP or GIF image.');
-  if (file.size > 5 * 1024 * 1024) throw new Error('Images must be smaller than 5 MB.');
-  const target = ref(storage, path);
-  try { await uploadBytes(target, file, { contentType: file.type }); return await getDownloadURL(target); }
-  catch (error) { throw new Error(`Image upload failed. Check Storage setup and rules (${error.code || error.message}).`); }
 }

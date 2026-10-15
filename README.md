@@ -1,239 +1,157 @@
-# RoomSync — Firebase + themed interface
+# RoomSync — free-tier household management
 
-RoomSync is again backed by **Firebase Authentication, Cloud Firestore and
-Firebase Storage**, not the previous localStorage database. React 18 + Vite,
-JavaScript, Recharts and plain CSS are retained. Preview: <http://localhost:5173>.
+React 18 + Vite + JavaScript, Firebase **Email/Password Authentication and Cloud
+Firestore**, Recharts and plain CSS. Preview: <http://localhost:5173>.
 
-## Interface update
+**No application feature uses Firebase Storage. No billing account is required
+for the active feature set on Firebase Spark, within its no-cost quotas.** No
+Cloud Functions, phone/SMS auth, external avatar API or other paid service is
+used. Free does not mean unlimited: monitor Auth/Firestore/Hosting quotas.
+Official plan details: <https://firebase.google.com/docs/projects/billing/firebase-pricing-plans>.
 
-- Frosted-glass panels and navigation, emerald accents and layered surfaces.
-- Tactile/neumorphic secondary buttons, hover lift, press feedback and soft
-  route/modal entrances. Financial actions still require explicit forms.
-- Clickable dashboard summaries open Expenses, Balances, Chores and Groceries.
-- Persistent **light/dark toggle** on authentication pages and the app toolbar,
-  with appearance controls in Settings. Initial theme follows the OS; stored
-  preference is applied before paint and synchronized between tabs.
-- Reduced-motion preference disables decorative animations. Keyboard focus,
-  responsive navigation and theme-aware form/chart styling are retained.
+## Generated avatars and full-viewport modals
 
-## Active data services
+Profile photos have been replaced with locally rendered initials avatars:
 
-- Email/password Firebase Auth, password reset, reauthentication before password
-  changes/account deletion, profile images and household member profiles.
-- Cloud households, long random invitation codes with server-enforced expiry,
-  owner/admin/member roles and membership-scoped real-time listeners.
-- Expenses with four integer-paise split methods, receipts, edit/soft-delete
-  audit history; balances recomputed from the expense/settlement ledger.
-- Recorded/confirmed/reversed settlements (bookkeeping, not bank transfers).
-- Bills and chores with deterministic recurring occurrence IDs and rotation.
-- Shopping, purchased history, activity, relevant notifications and reports/CSV.
-- Firestore transactions atomically link bill/grocery payments with expenses
-  and events. Retry guards prevent duplicate ledger entries and recurrences.
-- Real-time listeners are cleaned up, and errors display actionable messages
-  instead of silently showing zero balances. Cloud Firestore uses a memory
-  cache on shared devices; Firebase Auth still persists sign-in sessions.
+- Three built-in styles: **Circle, Rounded, Ring**.
+- Six fixed background colors with readable white initials. Unsaved/legacy
+  profiles derive a deterministic color from user ID and default to Circle.
+- Customize the preview in Settings and click **Save profile**. Only small
+  `avatarStyle` / `avatarColor` strings and the display name are merged into the
+  existing `users/{uid}` document, then mirrored to the user's existing household
+  member records for consistent, real-time member avatars.
+- Every avatar surface uses the shared Avatar component: sidebar, Settings,
+  Members, activity, balances, chores, expense participant selectors and dashboard.
+- No remote images, file inputs, upload/delete/download SDK calls, bucket
+  initialization, Storage emulator, Storage CI step or Storage deployment target.
+  Receipt attachments were removed from new forms too, so no feature depends on
+  a bucket. Historical image/receipt URL fields remain **untouched**, but are not
+  rendered or fetched by the application.
+- Defaults are computed on reads, not written as a bulk migration. Users with
+  missing profiles or no photo get initials immediately. Saving uses merge/update
+  operations; unrelated custom fields and existing timestamps are preserved.
 
-**Old local data is preserved:** the previous database key is untouched and is
-not uploaded automatically. Local accounts/password verifiers are not Firebase
-accounts. Sign in with, or create, a Firebase account for cloud use. Only UI
-preferences (theme and selected household) remain in application localStorage.
+The shared Modal now uses a **React portal into document.body**, outside the
+animated/transformed page and glass panels that previously confined its fixed
+backdrop. It covers the entire viewport, including the sidebar. The document
+scroll is locked, keyboard focus is trapped and restored on close, Escape and
+outside-click work, and a scrollable mobile dialog retains its header/close
+control. Current glass surfaces, button feedback, light/dark themes and
+reduced-motion support are preserved.
 
-## Current live-project status
+## Existing features preserved
 
-Verified on **2026-10-15**, project `roomsync-9dceb`:
+- Firebase registration, login/logout, session persistence, reset email,
+  password changes and protected routes.
+- Cloud households, owner/admin/member roles, invitations and switching.
+- Equal/custom/percentage/share expenses in integer paise, edit/soft-delete
+  history and full-ledger balances; settlements with confirm/reverse history.
+- Bills, recurring chores/rotation, grocery list, atomic purchase/expense links,
+  household activity, notifications, reports, CSV exports and real-time updates.
+- Existing financial records, user profiles, Authentication accounts, household
+  memberships, historical URLs, local-only legacy data and indexes are not
+  deleted, migrated or automatically uploaded by this change.
 
-- Firebase CLI access is working. Email/password sign-in is enabled and
-  localhost plus the two Firebase Hosting domains are authorized.
-- The existing **(default) Native Firestore database** is active in `nam5`.
-  It was not recreated, moved, or emptied.
-- **Firestore rules and indexes deployed successfully.** The active released
-  rules' content hash matches this repository's rules file.
-- Both composite indexes are **READY**: expenses `(deleted ASC, date DESC)`
-  and notifications `(recipientId ASC, createdAt DESC)`. The collection-group
-  `members.uid` index is also **READY**.
-- A live browser workflow with two disposable test accounts passed: registration,
-  household bootstrap, invitation claim, membership isolation, denied role
-  escalation, real-time expenses, edit/soft-delete, exact paise totals,
-  settlements/confirmation/reversal, bill and grocery ledger links without
-  duplicate retries, chore rotation/recurrence, reports, notifications and
-  refresh/sign-in persistence. **All generated test households, invites,
-  profiles and accounts were removed by a scoped administrator cleanup.**
-- **Storage is not ready:** its API was enabled, but there is no default bucket.
-  Billing is disabled and the attempt to create a default bucket returned
-  permission denied. Storage rules cannot deploy until a bucket is initialized.
-  The app disables optional image uploads with a useful explanation instead of
-  pretending they work. Financial and household features still work normally.
-- No paid billing plan, Cloud Function or public Hosting release was enabled.
+The only Firestore rules change for avatars adds validated enum metadata to an
+existing **self-profile** update permission and validates avatar enums on the
+private user profile. It does not permit editing another user, role escalation,
+or cross-household reads/writes. All prior financial/membership permissions remain.
+The old Storage rules file is retained unchanged as an inactive historical
+artifact; it is not referenced by Firebase configuration or deployed.
 
-The ignored `.env.local` holds the supplied web identifiers; the example is a
-sanitized template. A safe read-only administrator snapshot is saved under
-`artifacts/firebase/status.json`. This is a dated verification report, not a
-guarantee that future console changes cannot alter the configuration.
-
-## Install and preview
+## Install, configure and preview
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Node 18+ for Vite; Node 22 is recommended for the test toolchain. The local
-server is restricted to loopback and port 5173. No host-check bypass is enabled.
+Use Node 22 for the complete toolchain (Vite also supports Node 18+). Put Firebase
+web app identifiers in ignored `.env.local`, using `.env.example` as a guide.
+Only the API key, Auth domain, project ID, app ID and optional messaging sender
+ID are documented; no bucket or upload-enable flag is used. Web identifiers are
+not privileged credentials. Never put Admin SDK keys/access tokens in frontend
+files, `VITE_` values, the repository, remote URLs or chat.
 
-For a fresh clone, copy `.env.example` to `.env.local` and fill in the Firebase
-**web app** identifiers from Project settings → General → Your apps. Never put
-an Admin key, service-account private key or access token in a `VITE_` variable.
+For a new Spark project, enable Email/Password Authentication, create a default
+Firestore database, authorize localhost and deploy rules/indexes:
 
 ```bash
-npm run check:firebase    # read-only service/configuration preflight
-npm run check:firebase:admin # read-only rules/index/Auth/billing/bucket check
+npx --yes firebase-tools@13 login
+npm run deploy:firestore
+npm run check:firebase
+npm run check:firebase:admin
 ```
 
-## Remaining Firebase setup: optional image uploads
-
-Auth, the Firestore database, its rules and required indexes are deployed and
-verified. Collections/documents are created by normal app actions; no fake
-dashboard data or manual collection seeding is needed.
-
-The only remaining core-service setup is **Firebase Storage**:
-
-1. A project/billing owner must explicitly enable the **Blaze** plan and required
-   billing access. This agent did not change billing or attach a billing account.
-2. Open <https://console.firebase.google.com/project/roomsync-9dceb/storage>
-   and choose **Get started** to initialize the default bucket. The attempted
-   API setup was denied, so use an account with Storage creation permission.
-3. Use a region appropriate for the existing database/users. Confirm the
-   actual bucket name in the console and match `VITE_FIREBASE_STORAGE_BUCKET`
-   in `.env.local`; don't assume a bucket exists from the web config alone.
-4. Deploy the prepared, emulator-tested Storage rules:
-
-   ```bash
-   npm run deploy:storage
-   ```
-
-5. Set `VITE_FIREBASE_UPLOADS_ENABLED=true` in `.env.local`, restart the dev
-   server (or rebuild), and test a small receipt/photo upload with a test account.
-   No billing or upload feature is enabled merely by setting this flag.
-
-To redeploy Firestore configuration in future, use `npm run deploy:firestore`.
-The checked-in `.firebaserc` binds ordinary CLI commands to `roomsync-9dceb`.
-Do not disable security rules to make queries/uploads succeed. New default
-Storage buckets require the Blaze plan; see the official Firebase Storage
-billing-change FAQ: <https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024>.
-
-No Cloud Functions are currently deployed or required by normal CRUD. Permanent
-recursive household deletion and ownership transfer are deliberately unavailable
-rather than risking orphaned ledgers. That remaining administrative workflow
-needs trusted server-side implementation and testing before a production launch.
-Account deletion is allowed only after household memberships are resolved.
+This project's default CLI target is `roomsync-9dceb` in `.firebaserc`. Inspect
+that target before deploying from a clone intended for a different project.
+No Storage setup, Blaze upgrade or billing attachment is part of setup.
 
 ## Verification
 
-Latest result: **40 calculation tests, 30 Firestore security tests, 11 Storage
-security tests, 3 Firebase-emulator browser workflows and 1 scoped live-Firebase
-browser workflow passed; production build succeeded.** Firestore deployment and
-live database workflows were separately verified; live uploads remain blocked
-by the missing bucket/billing.
+Latest checks for this change:
+
+- **47 unit tests**: existing 40 calculation tests plus 7 avatar tests covering
+  initials/Unicode, deterministic defaults, supported styles/colors, legacy
+  profile preservation, invalid enum handling and text contrast.
+- **33 Firestore rule tests**: existing financial/privacy checks plus avatar
+  self-edit, legacy-field preservation and invalid/cross-user edit denials.
+- **6 browser workflows** using only local Auth + Firestore emulators:
+  registration/login, profile styling and persistence across reload/sign-in,
+  existing/new households, real-time shared avatar changes, missing-profile
+  defaults without migration, legacy image/custom-field preservation, no Storage
+  requests, desktop/mobile avatar rendering and modal viewport/focus/scroll tests.
+  Existing expense, settlement, bill/grocery transaction, recurrence, notification,
+  theme and household sharing regression paths remain covered.
 
 ```bash
-npm test                         # 40 calculation tests
-npm run test:rules               # Firestore security tests (isolated emulator)
-npm run test:storage             # Storage privacy/MIME/size/path emulator tests
+npm test
+npm run test:rules
 npx playwright install chromium # first browser run only
-npm run test:browser             # 3 Firebase emulator browser workflows
+npm run test:browser
 npm run build
 ```
 
-The Firebase browser test configuration uses **demo-roomsync** on port 5174,
-with local Auth/Firestore/Storage emulators. It never connects test accounts or
-expenses to the supplied live project. Java is required for emulators; the CLI
-is pinned to v13 for the machine's Java 11. CI uses Node 22 and Java 21.
+Emulator tests use `demo-roomsync` / `roomsync-rules-test`, isolated temporary
+browser profiles and ignored `artifacts/tests/`; they do not modify live user
+records. Java is required for the emulators. Firebase CLI v13 is pinned for this
+machine's Java 11; CI uses Node 22 and Java 21.
 
-Verified browser paths: Auth registration, batched household bootstrap, shared
-ledger edit/delete, session/reload persistence, transaction-safe bill payment,
-chore recurrence, grocery links, receipt upload, an invitation between two
-independent browser contexts, real-time synchronization, both themes, clickable
-summary cards, mobile navigation and reduced-motion behavior. Screenshots and
-traces are local artifacts under `artifacts/tests/` and excluded from Git.
+The production build no longer imports Firebase Storage. The official `firebase`
+package can retain optional Storage subpackages in its lockfile; they are not
+imported or bundled by RoomSync.
 
-Live integration testing is separate, opt-in and **not part of CI**:
+## Live configuration status
 
-```bash
-ROOMSYNC_LIVE_TESTS=1 npx playwright test --config playwright.live.config.js
-# Then remove only those disposable records using the exact generated manifest:
-node scripts/cleanup-live-tests.mjs artifacts/tests/live-firebase-ROOMSYNC-TEST-TIMESTAMP-ID.json
-```
+The avatar-only Firestore rule extension was deployed and its live source hash
+verified against this repository. Both expense/notification composite indexes
+and the collection-group membership `uid` index remain **READY**. Email/password
+Auth is enabled, localhost is authorized, and billing remains **disabled**.
+Safe read-only status is recorded in `artifacts/firebase/status.json`.
 
-The live check records the exact generated account/household/invite IDs in
-ignored manifests. Cleanup requires the existing Firebase CLI administrator
-login and verifies the unique test marker before deleting anything. Never pass
-real household records to this cleanup workflow. Credentials stay in CLI-managed
-storage/in-process memory, not in frontend files or committed artifacts.
+An earlier scoped live test verified shared financial workflows; its disposable
+accounts, households and invites were cleaned up. This avatar/modal revision was
+tested in emulators and did **not** delete/migrate existing live user data or
+create a billing account. Existing service status can be rechecked with the
+read-only admin command above; it no longer queries any Storage API.
 
-Calculation tests cover paise allocation, all split methods, multiple payers,
-partial settlements and reversals. Security tests also reject mismatched totals,
-negative allocations, author changes, expired invitations, privilege escalation,
-cross-household access and private profile/notification access.
-
-Legacy local-only tests/configuration and `localStore.js` remain historical and
-are excluded from the current test commands. They do not represent the active
-backend; use the commands above rather than the old local Playwright config.
-
-## Explicit limits / remaining work
-
-- Allocation rules verify totals and nonnegative integer values for at most
-  **8 distinct people per expense** (payers and participants combined), with a ₹10 crore total cap. The bound keeps worst-case validation within Firestore's expression budget.
-  Larger financial allocations require trusted server-side validation. Split
-  intent is calculated in the app; rules enforce allocation consistency, not
-  every split-method formula. A malicious household member can still enter
-  dishonest financial input; this is not a bank or an externally certified audit.
-- Recursive cloud household deletion and ownership transfer are not configured.
-  The dangerous delete control is disabled, and the service refuses without
-  deleting any records. Do not treat this as a complete production release yet.
-- No scheduled email/push reminders or AI integration. Notifications are in-app;
-  reset emails are handled by Firebase Authentication.
-- Live Storage uploads remain unverified/unavailable until the owner completes
-  bucket and billing setup. Storage rules are prepared and tested, not deployed.
-- Firebase download URLs are bearer links. Share receipt links privately.
-
-## GitHub publication
-
-A repository is initialized locally for **this app only**, not the surrounding
-Designer workspace. `.env.local`, dependencies, builds, screenshots, logs,
-service-account key patterns and private keys are ignored. The web template has
-no filled credentials. A GitHub Actions workflow runs build, rules and browser
-checks without production secrets.
-
-The access token pasted in chat is exposed. **Revoke it in GitHub → Settings →
-Developer settings → Personal access tokens.** Do not place the replacement in
-chat, source files, a remote URL, commit messages or command history. Authenticate
-using GitHub CLI browser login or your system's secure Git credential flow.
-
-Published to **<https://github.com/Alexwatson-de/Roomsync>**, branch `main`.
-The initial application commit `7c33fdd` was pushed successfully and its full
-commit ID matched the remote branch. Publication used the machine's configured
-Git credential flow; no chat token was embedded in source or the remote URL.
-The committed-file scan passed for access tokens, private keys and excluded
-runtime/generated files. No remote history was overwritten.
-
-For future updates from this app repository:
-
-```bash
-git push origin main
-```
-
-GitHub publication itself does not deploy Firebase: Firestore rules/indexes
-were deployed separately as recorded above. Hosting remains optional and has
-not been published. Check CI execution results on GitHub separately.
-
-## Optional Hosting deployment (not performed)
+## Deployment and remaining limits
 
 ```bash
 npm run build
 npx --yes firebase-tools@13 deploy --project roomsync-9dceb --only hosting
 ```
 
-Add the deployed/custom domain to Auth authorized domains when needed. Ensure
-rules and indexes are deployed **before** exposing shared data. Hosting, database,
-uploads and a GitHub source push are separate operations; none should be called
-complete until its actual result has been verified.
+Hosting publication is optional and separate; no new public Hosting release was
+made for this change. Firestore rules must remain deployed before shared data is
+used. Add your deployed/custom domain to Auth's authorized domains as needed.
+
+As before, trusted recursive household deletion and ownership transfer are not
+implemented; their unavailable controls do not silently delete ledgers. No paid
+backend was added to provide them. Per-expense allocation validation supports
+8 distinct payers/participants and a ₹10 crore total cap. No scheduled email/
+push reminders or AI services are required. Firebase Spark quotas apply.
+
+Source repository: <https://github.com/Alexwatson-de/Roomsync>. CI checks use
+emulated Auth/Firestore without production credentials. For the exact scope of
+this revision, see [files changed and data-preservation notes](docs/avatar-modal-changes.md).

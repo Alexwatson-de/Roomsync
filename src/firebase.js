@@ -3,29 +3,22 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 export const firebaseConfigured = Boolean(config.apiKey && config.authDomain && config.projectId && config.appId);
 export const usingEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true';
-// No default bucket exists on the live Spark project yet. Do not let optional
-// uploads hang or pretend they work. Enable only after bucket/rules deployment.
-export const uploadsEnabled = usingEmulators || import.meta.env.VITE_FIREBASE_UPLOADS_ENABLED === 'true';
 export const firebaseProjectId = config.projectId;
 export const app = firebaseConfigured ? initializeApp(config) : null;
 export const auth = app ? getAuth(app) : null;
 // Memory cache avoids leaving another account's private records in IndexedDB
 // on shared household devices. Authentication still persists via Firebase Auth.
 export const db = app ? getFirestore(app) : null;
-export const storage = app && config.storageBucket && uploadsEnabled ? getStorage(app) : null;
 if (app && usingEmulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8089);
-  if (storage) connectStorageEmulator(storage, '127.0.0.1', 9199);
 }

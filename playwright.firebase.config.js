@@ -1,6 +1,5 @@
 import { defineConfig } from '@playwright/test';
-// This server never uses the supplied production Firebase project. All auth,
-// data and uploads go to isolated local emulators under demo-roomsync.
+// Isolated Auth/Firestore only. No Storage emulator, bucket or billing needed.
 export default defineConfig({
   testDir: './tests/firebase-browser',
   outputDir: './artifacts/tests/firebase-browser',
@@ -11,6 +10,6 @@ export default defineConfig({
     command: 'npm run dev -- --port 5174',
     url: 'http://localhost:5174',
     reuseExistingServer: false,
-    env: { VITE_FIREBASE_PROJECT_ID: 'demo-roomsync', VITE_FIREBASE_API_KEY: 'fake-emulator-key', VITE_FIREBASE_AUTH_DOMAIN: 'demo-roomsync.firebaseapp.com', VITE_FIREBASE_APP_ID: '1:123:web:test', VITE_FIREBASE_STORAGE_BUCKET: 'demo-roomsync.appspot.com', VITE_USE_FIREBASE_EMULATORS: 'true' },
+    env: { VITE_FIREBASE_PROJECT_ID: 'demo-roomsync', VITE_FIREBASE_API_KEY: 'fake-emulator-key', VITE_FIREBASE_AUTH_DOMAIN: 'demo-roomsync.firebaseapp.com', VITE_FIREBASE_APP_ID: '1:123:web:test', VITE_USE_FIREBASE_EMULATORS: 'true' },
   },
 });

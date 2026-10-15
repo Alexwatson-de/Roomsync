@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-15T15:45:22.915Z",
+  "checkedAt": "2026-10-15T16:17:59.718Z",
   "projectId": "roomsync-9dceb",
   "authentication": {
     "emailPasswordEnabled": true,
@@ -14,7 +14,7 @@
     "location": "nam5",
     "type": "FIRESTORE_NATIVE",
     "rulesMatchLocal": true,
-    "ruleset": "projects/roomsync-9dceb/rulesets/229fe373-66cf-43ac-ab8c-c2d045071dce",
+    "ruleset": "projects/roomsync-9dceb/rulesets/82e47e57-fd9f-4291-8155-b7b8754ba6b4",
     "indexes": [
       {
         "collectionGroup": "expenses",
@@ -47,11 +47,9 @@
     ],
     "membershipIndexState": "READY"
   },
+  "billingEnabled": false,
   "storage": {
-    "defaultBucketExists": false,
-    "bucket": null,
-    "billingEnabled": false,
-    "rulesDeployed": false,
-    "note": "No default bucket exists. Storage setup returned permission denied. Blaze billing is disabled; administrator must configure billing/permissions and create a bucket before rules can deploy."
+    "usedByApplication": false,
+    "note": "Generated avatars and all active features use Auth/Firestore only. No bucket, uploads or billing account required."
   }
 }

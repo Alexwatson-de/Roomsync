@@ -1,9 +1,10 @@
 // Active authentication is Firebase Auth; no passwords or verifiers are
 // written to localStorage. Legacy local accounts do not become cloud accounts.
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile, updatePassword, deleteUser, reauthenticateWithCredential, EmailAuthProvider, onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, deleteDoc, getDocs, query, collectionGroup, where, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc, getDocs, query, collectionGroup, where, writeBatch, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase.js';
-import { currentUser, uploadImage } from './cloudStore.js';
+import { currentUser } from './cloudStore.js';
+import { defaultAvatar, resolveAvatar, validateAvatar } from '../lib/avatars.js';
 export const listenAuth = (callback) => onAuthStateChanged(auth, callback);
 export async function register({ email, password, displayName }) {
   if (!displayName?.trim()) throw new Error('Your name is required.');
@@ -13,7 +14,7 @@ export async function register({ email, password, displayName }) {
   // If Firestore is unavailable the UI reports it rather than silently using
   // local data; the Auth account itself has already been created.
   try {
-    await setDoc(doc(db, 'users', user.uid), { uid: user.uid, displayName: user.displayName, photoURL: null, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'users', user.uid), { uid: user.uid, displayName: user.displayName, ...defaultAvatar(user.uid), createdAt: serverTimestamp() });
   } catch (error) {
     throw new Error(`Your Firebase sign-in account was created, but the profile could not be saved (${error.code}). Enable Firestore and deploy rules, then sign in with this account. Do not register it again.`);
   }
@@ -22,19 +23,31 @@ export async function register({ email, password, displayName }) {
 export const login = ({ email, password }) => signInWithEmailAndPassword(auth, email.trim(), password);
 export const logout = () => signOut(auth);
 export const resetPassword = (email) => sendPasswordResetEmail(auth, email.trim());
-export async function updateUserProfile({ displayName, photoFile }) {
+export function listenUserProfile(uid, callback, onError) {
+  // Read only; legacy records receive computed defaults without a migration.
+  return onSnapshot(doc(db, 'users', uid), (snap) => callback(snap.exists() ? snap.data() : null), onError);
+}
+export async function updateUserProfile({ displayName, avatarStyle, avatarColor }) {
   const user = currentUser();
   if (!displayName?.trim()) throw new Error('Your name is required.');
-  const photoURL = photoFile ? await uploadImage(`users/${user.uid}/avatar`, photoFile) : user.photoURL;
-  await updateProfile(user, { displayName: displayName.trim(), photoURL: photoURL || null });
-  await setDoc(doc(db, 'users', user.uid), { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL }, { merge: true });
+  const avatar = validateAvatar({ avatarStyle, avatarColor });
+  const patch = { displayName: displayName.trim(), ...avatar };
   const memberships = await getDocs(query(collectionGroup(db, 'members'), where('uid', '==', user.uid)));
-  for (let i = 0; i < memberships.docs.length; i += 400) {
+  // Merge only the editable profile fields. Keep existing photoURL, custom
+  // fields, creation time, household roles and all historical records intact.
+  for (let i = 0; i < Math.max(memberships.docs.length, 1); i += 400) {
     const batch = writeBatch(db);
-    memberships.docs.slice(i, i + 400).forEach((m) => batch.update(m.ref, { displayName: user.displayName, photoURL: user.photoURL }));
+    if (i === 0) batch.set(doc(db, 'users', user.uid), { uid: user.uid, ...patch }, { merge: true });
+    memberships.docs.slice(i, i + 400).forEach((m) => batch.update(m.ref, patch));
     await batch.commit();
   }
-  return { displayName: user.displayName, photoURL: user.photoURL };
+  await updateProfile(user, { displayName: patch.displayName });
+  return patch;
+}
+export async function getAvatarProfile(user) {
+  const stored = await getUserDoc(user.uid);
+  const { avatarStyle, avatarColor } = resolveAvatar({ ...stored, uid: user.uid, name: stored?.displayName || user.displayName || user.email });
+  return { avatarStyle, avatarColor };
 }
 export async function getUserDoc(uid) {
   const snap = await getDoc(doc(db, 'users', uid));

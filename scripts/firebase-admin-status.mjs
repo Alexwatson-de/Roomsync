@@ -29,9 +29,6 @@ const release = await get('https://firebaserules.googleapis.com', `/v1/projects/
 const rules = await get('https://firebaserules.googleapis.com', `/v1/${release.rulesetName}`);
 const source = rules.source?.files?.find((file) => file.name === 'firestore.rules')?.content || rules.source?.files?.[0]?.content;
 const hash = (text) => createHash('sha256').update(text).digest('hex');
-let bucket = null;
-try { bucket = await get('https://firebasestorage.googleapis.com', `/v1alpha/projects/${project}/defaultBucket`); }
-catch (error) { if (error.status !== 404 && error.status !== 403) throw error; }
 const desired = JSON.parse(readFileSync('firestore.indexes.json', 'utf8'));
 const indexes = desired.indexes.map((expected) => {
   const actual = composite.indexes?.find((index) => index.name.includes(`/collectionGroups/${expected.collectionGroup}/`) && index.queryScope === expected.queryScope && expected.fields.every((field, i) => index.fields[i]?.fieldPath === field.fieldPath && index.fields[i]?.order === field.order));
@@ -42,7 +39,8 @@ const report = {
   checkedAt: new Date().toISOString(), projectId: project,
   authentication: { emailPasswordEnabled: authConfig.signIn?.email?.enabled === true && authConfig.signIn?.email?.passwordRequired === true, authorizedDomains: authConfig.authorizedDomains || [] },
   firestore: { database: '(default)', location: database.locationId, type: database.type, rulesMatchLocal: Boolean(source && hash(source) === hash(readFileSync('firestore.rules', 'utf8'))), ruleset: release.rulesetName, indexes, membershipIndexState: memberIndex?.state || 'MISSING' },
-  storage: { defaultBucketExists: Boolean(bucket?.bucket?.name), bucket: bucket?.bucket?.name || null, billingEnabled: billing.billingEnabled === true, rulesDeployed: bucket?.bucket?.name ? null : false, note: bucket?.bucket?.name ? 'Verify Storage rules release separately before enabling uploads.' : 'No default bucket exists. Storage setup returned permission denied. Blaze billing is disabled; administrator must configure billing/permissions and create a bucket before rules can deploy.' },
+  billingEnabled: billing.billingEnabled === true,
+  storage: { usedByApplication: false, note: 'Generated avatars and all active features use Auth/Firestore only. No bucket, uploads or billing account required.' },
 };
 console.log(JSON.stringify(report, null, 2));
 if (process.argv.includes('--report')) {

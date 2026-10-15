@@ -234,7 +234,7 @@ export default function Dashboard() {
                 return (
                   <div className="list-row" key={uid}>
                     <span className="member-chip grow">
-                      <Avatar name={m?.displayName || '?'} photoURL={m?.photoURL} />
+                      <Avatar name={m?.displayName || 'Former member'} uid={uid} profile={m} />
                       {m?.displayName || 'Former member'}
                     </span>
                     <span>{formatPaise(paid)}</span>
@@ -268,8 +268,8 @@ export default function Dashboard() {
         <ExpenseForm
           members={members}
           onClose={() => setShowExpenseForm(false)}
-          onSave={async (data, receipt) => {
-            await addExpense(activeId, data, receipt);
+          onSave={async (data) => {
+            await addExpense(activeId, data);
             toast('Expense added');
           }}
         />

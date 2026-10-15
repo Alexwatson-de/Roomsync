@@ -133,7 +133,7 @@ export default function Chores() {
               return (
                 <div className="list-row" key={uid}>
                   <span className="member-chip" style={{ width: 160 }}>
-                    <Avatar name={m?.displayName || '?'} photoURL={m?.photoURL} />
+                    <Avatar name={m?.displayName || 'Former member'} uid={uid} profile={m} />
                     {m?.displayName || 'Former member'}
                   </span>
                   <div className="grow progress-track">

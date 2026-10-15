@@ -26,7 +26,7 @@ const MOBILE_NAV = NAV.filter((n) =>
 );
 
 export default function Layout({ children }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { memberships, activeId, switchHousehold, household, unreadCount } = useHousehold();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -64,10 +64,10 @@ export default function Layout({ children }) {
 
         <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
           <div className="member-chip" style={{ padding: '0.3rem 0.5rem' }}>
-            <Avatar name={user?.displayName || user?.email} photoURL={user?.photoURL} />
+            <Avatar uid={user?.uid} name={profile?.displayName || user?.displayName || user?.email} profile={profile} />
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '0.85rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {user?.displayName || user?.email}
+                {profile?.displayName || user?.displayName || user?.email}
               </div>
               <button
                 className="btn btn-ghost btn-sm"

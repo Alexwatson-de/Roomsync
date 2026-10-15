@@ -9,17 +9,17 @@ import { updateHousehold, deleteHousehold } from '../services/households.js';
 import { Avatar, ConfirmDialog, Modal } from '../components/ui.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { ThemeToggle } from '../context/ThemeContext.jsx';
-import { uploadsEnabled } from '../firebase.js';
+import { AVATAR_STYLES, AVATAR_COLORS, resolveAvatar } from '../lib/avatars.js';
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, profile, profileLoading, profileError } = useAuth();
   const { activeId, household, myRole, memberships } = useHousehold();
   const toast = useToast();
   const navigate = useNavigate();
 
   // profile
   const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [photoFile, setPhotoFile] = useState(null);
+  const [avatar, setAvatar] = useState(() => resolveAvatar({ ...profile, uid: user?.uid }));
   const [savingProfile, setSavingProfile] = useState(false);
 
   // household
@@ -30,6 +30,12 @@ export default function Settings() {
   const [confirmDeleteHousehold, setConfirmDeleteHousehold] = useState(false);
   const [deleteAccountModal, setDeleteAccountModal] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (profileLoading) return;
+    setDisplayName(profile?.displayName || user?.displayName || '');
+    setAvatar(resolveAvatar({ ...profile, uid: user?.uid }));
+  }, [user?.uid, profileLoading, profile?.displayName, profile?.avatarStyle, profile?.avatarColor]);
 
   useEffect(() => {
     setHName(household?.name || '');
@@ -43,7 +49,7 @@ export default function Settings() {
     e.preventDefault();
     setSavingProfile(true);
     try {
-      await updateUserProfile({ displayName: displayName.trim(), photoFile });
+      await updateUserProfile({ displayName: displayName.trim(), avatarStyle: avatar.avatarStyle, avatarColor: avatar.avatarColor });
       toast('Profile updated');
     } catch (err) {
       toast.error(`Could not update profile: ${err.message}`);
@@ -75,13 +81,25 @@ export default function Settings() {
         <div className="card-title"><h3>Your profile</h3></div>
         <form onSubmit={saveProfile}>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.8rem' }}>
-            <Avatar name={user?.displayName || user?.email} photoURL={user?.photoURL} size="lg" />
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Profile picture</label>
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={!uploadsEnabled} onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
-              {!uploadsEnabled && <span className="hint">Photo uploads need Firebase Storage setup. Your display name can still be updated.</span>}
-            </div>
+            <Avatar uid={user?.uid} name={displayName || user?.email} profile={avatar} size="lg" />
+            <div><strong>Your generated avatar</strong><p style={{ color: 'var(--text-soft)', fontSize: '0.85rem' }}>Initials, your style, your color. No photo upload needed.</p></div>
           </div>
+          <fieldset className="avatar-picker" disabled={profileLoading || savingProfile}>
+            <legend>Avatar style</legend>
+            <div className="avatar-options">
+              {AVATAR_STYLES.map((option) => <button key={option.id} type="button" className="avatar-option" aria-label={`${option.label} avatar style`} aria-pressed={avatar.avatarStyle === option.id} onClick={() => setAvatar((value) => ({ ...value, avatarStyle: option.id }))}>
+                <Avatar uid={user?.uid} name={displayName} profile={{ ...avatar, avatarStyle: option.id }} /><span>{option.label}</span>
+              </button>)}
+            </div>
+          </fieldset>
+          <fieldset className="avatar-picker" disabled={profileLoading || savingProfile}>
+            <legend>Avatar color</legend>
+            <div className="avatar-options">
+              {AVATAR_COLORS.map((option) => <button key={option.id} type="button" className="avatar-color" style={{ background: option.background }} aria-label={`${option.label} avatar color`} aria-pressed={avatar.avatarColor === option.id} onClick={() => setAvatar((value) => ({ ...value, avatarColor: option.id }))}>
+                <span aria-hidden="true">{avatar.avatarColor === option.id ? '✓' : ''}</span>
+              </button>)}
+            </div>
+          </fieldset>
           <div className="form-row">
             <div className="field">
               <label>Display name</label>
@@ -92,7 +110,8 @@ export default function Settings() {
               <input value={user?.email || ''} disabled />
             </div>
           </div>
-          <button className="btn" disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Save profile'}</button>
+          {profileError && <p role="alert" className="error-text">Profile could not be loaded: {profileError.message}. Reload before changing it.</p>}
+          <button className="btn" disabled={savingProfile || profileLoading || Boolean(profileError)}>{savingProfile ? 'Saving…' : 'Save profile'}</button>
         </form>
       </div>
 

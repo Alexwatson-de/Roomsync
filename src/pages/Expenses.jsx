@@ -147,8 +147,8 @@ export default function Expenses() {
         <ExpenseForm
           members={members}
           onClose={() => setShowForm(false)}
-          onSave={async (data, receipt) => {
-            await addExpense(activeId, data, receipt);
+          onSave={async (data) => {
+            await addExpense(activeId, data);
             toast('Expense added');
           }}
         />
@@ -160,8 +160,8 @@ export default function Expenses() {
           members={members}
           initial={editing}
           onClose={() => setEditing(null)}
-          onSave={async (data, receipt) => {
-            await updateExpense(activeId, editing.id, data, receipt);
+          onSave={async (data) => {
+            await updateExpense(activeId, editing.id, data);
             toast('Expense updated — balances recalculated');
           }}
         />
@@ -210,11 +210,6 @@ export default function Expenses() {
               <span>{formatPaise(s)}</span>
             </div>
           ))}
-          {viewing.receiptUrl && (
-            <p style={{ marginTop: '0.8rem' }}>
-              <a href={viewing.receiptUrl} target="_blank" rel="noreferrer">View receipt ↗</a>
-            </p>
-          )}
         </Modal>
       )}
     </>

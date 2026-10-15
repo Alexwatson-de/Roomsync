@@ -67,7 +67,7 @@ export default function Balances() {
             return (
               <div className="list-row" key={m.uid}>
                 <span className="member-chip grow">
-                  <Avatar name={m.displayName} photoURL={m.photoURL} />
+                  <Avatar profile={m} />
                   {m.displayName} {m.uid === user.uid && <span className="badge badge-grey">you</span>}
                 </span>
                 <Amount paise={v} signed />

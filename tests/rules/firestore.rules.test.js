@@ -345,6 +345,24 @@ describe('activity feed', () => {
 });
 
 describe('Firebase restoration hardening', () => {
+  it('lets a member change only their own built-in avatar without changing role', async () => {
+    await assertSucceeds(updateDoc(doc(db(BOB), 'households', HID, 'members', BOB), { avatarStyle: 'ring', avatarColor: 'teal' }));
+    await assertFails(updateDoc(doc(db(BOB), 'households', HID, 'members', BOB), { avatarStyle: 'rounded', role: 'admin' }));
+    await assertFails(updateDoc(doc(db(BOB), 'households', HID, 'members', ALICE), { avatarColor: 'rose' }));
+  });
+  it('stores avatar selections on the private user profile and preserves legacy fields', async () => {
+    const userRef = doc(db(ALICE), 'users', ALICE);
+    await setDoc(userRef, { uid: ALICE, displayName: 'Alice', photoURL: 'https://old.example/photo', customExistingField: 'keep' });
+    await assertSucceeds(updateDoc(userRef, { avatarStyle: 'rounded', avatarColor: 'violet' }));
+    const saved = (await getDoc(userRef)).data();
+    expect(saved.photoURL).toBe('https://old.example/photo');
+    expect(saved.customExistingField).toBe('keep');
+    await assertFails(updateDoc(doc(db(BOB), 'users', ALICE), { avatarStyle: 'circle' }));
+  });
+  it('rejects arbitrary avatar strings on users and membership snapshots', async () => {
+    await assertFails(setDoc(doc(db(ALICE), 'users', ALICE), { avatarStyle: 'image', avatarColor: 'url(https://external)' }));
+    await assertFails(updateDoc(doc(db(BOB), 'households', HID, 'members', BOB), { avatarStyle: 'ring', avatarColor: 'invalid' }));
+  });
   it('validates all 8 allocation entries within the rule execution budget', async () => {
     const ids = Array.from({ length: 8 }, (_, i) => `member-${i}`);
     const allocations = Object.fromEntries(ids.map((id) => [id, 11250]));

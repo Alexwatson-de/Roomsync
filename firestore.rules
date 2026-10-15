@@ -41,8 +41,15 @@ service cloud.firestore {
         && invite.role == d.role && d.role in ['member', 'admin'];
     }
 
+    // Additive avatar metadata only; existing membership/financial gates stay
+    // unchanged. No migration or removal of legacy photoURL fields required.
+    function validAvatar(d) {
+      return d.get('avatarStyle', 'circle') in ['circle', 'rounded', 'ring']
+        && d.get('avatarColor', 'emerald') in ['emerald', 'teal', 'blue', 'violet', 'rose', 'amber'];
+    }
     match /users/{uid} {
-      allow read, create, update, delete: if signedIn() && request.auth.uid == uid;
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && validAvatar(request.resource.data);
     }
     match /invites/{token} {
       allow get: if signedIn(); // capability token; never expose a global list
@@ -81,7 +88,8 @@ service cloud.firestore {
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.householdId == hid
           && (
-            (request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL']))
+            (request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'avatarStyle', 'avatarColor'])
+              && validAvatar(request.resource.data))
             || (request.auth.uid != uid && isAdmin(hid) && resource.data.role != 'owner'
               && request.resource.data.role in ['member', 'admin']
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
