@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// RoomSync Storage rules: avatars are user-owned; receipts are household-scoped.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isHouseholdMember(hid) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/households/$(hid)/members/$(request.auth.uid));
+    }
+
+    // User avatars: owner writes, any signed-in user reads (shown next to names).
+    match /users/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Receipts and household images: members only, images up to 10 MB.
+    match /households/{hid}/{allPaths=**} {
+      allow read: if isHouseholdMember(hid);
+      allow write: if isHouseholdMember(hid)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

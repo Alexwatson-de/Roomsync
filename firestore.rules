@@ -1,0 +1,158 @@
+rules_version = '2';
+// Active cloud rules. Never deploy test-mode public access.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isMember(hid) { return signedIn() && exists(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid)); }
+    function memberRole(hid) { return get(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid)).data.role; }
+    function isAdmin(hid) { return isMember(hid) && memberRole(hid) in ['owner', 'admin']; }
+    function isOwner(hid) { return isMember(hid) && memberRole(hid) == 'owner'; }
+    function immutableAuthor() { return request.resource.data.createdBy == resource.data.createdBy; }
+    function amount(n) { return n is int && n >= 0 && n <= 10000000000; }
+
+    // Rules cannot loop. Explicitly validate all allocations up to 8 entries.
+    // An invalid entry returns a negative sentinel larger than all 8 valid
+    // amounts combined, so no combination can conceal invalid negative/float
+    // values and still equal a positive total. Keys come from the map itself.
+    function allocationAt(values, i) {
+      return values.size() <= i ? 0 : (amount(values[i]) ? values[i] : -1000000000000);
+    }
+    function allocationTotal(m) {
+      let v = m.values();
+      return allocationAt(v, 0) + allocationAt(v, 1) + allocationAt(v, 2) + allocationAt(v, 3)
+        + allocationAt(v, 4) + allocationAt(v, 5) + allocationAt(v, 6) + allocationAt(v, 7);
+    }
+    function validExpense(d) {
+      return amount(d.totalPaise) && d.totalPaise > 0
+        && d.title is string && d.title.size() > 0 && d.title.size() <= 200
+        && d.payers is map && d.shares is map
+        && d.payers.size() > 0 && d.payers.size() <= 8
+        && d.shares.size() > 0 && d.shares.size() <= 8
+        && d.participants is list && d.participants.size() == d.shares.size()
+        && d.participants.toSet() == d.shares.keys().toSet()
+        && d.participants.toSet().union(d.payers.keys().toSet()).size() <= 8
+        && d.splitMethod in ['equal', 'custom', 'percentage', 'shares']
+        && allocationTotal(d.payers) == d.totalPaise
+        && allocationTotal(d.shares) == d.totalPaise;
+    }
+    function validInviteClaim(hid, d) {
+      let invite = get(/databases/$(database)/documents/invites/$(d.inviteCode)).data;
+      return invite.householdId == hid && invite.active == true
+        && invite.expiresAt > request.time.toMillis()
+        && invite.role == d.role && d.role in ['member', 'admin'];
+    }
+
+    match /users/{uid} {
+      allow read, create, update, delete: if signedIn() && request.auth.uid == uid;
+    }
+    match /invites/{token} {
+      allow get: if signedIn(); // capability token; never expose a global list
+      allow list: if isAdmin(resource.data.householdId);
+      allow create: if isAdmin(request.resource.data.householdId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.role in ['member', 'admin']
+        && request.resource.data.expiresAt > request.time.toMillis();
+      allow update: if isAdmin(resource.data.householdId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active']);
+      allow delete: if isAdmin(resource.data.householdId);
+    }
+    match /{path=**}/members/{memberId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+    match /households/{hid} {
+      allow get: if isMember(hid);
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid
+        && getAfter(/databases/$(database)/documents/households/$(hid)/members/$(request.auth.uid)).data.role == 'owner';
+      allow update: if isAdmin(hid) && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'imageUrl', 'archived']);
+      allow delete: if false; // trusted recursive deletion only; never orphan ledgers
+
+      match /members/{uid} {
+        allow read: if isMember(hid);
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.uid == uid && request.resource.data.householdId == hid
+          && (
+            (request.resource.data.role == 'owner'
+              && !exists(/databases/$(database)/documents/households/$(hid))
+              && getAfter(/databases/$(database)/documents/households/$(hid)).data.createdBy == request.auth.uid)
+            || (request.resource.data.role in ['member', 'admin'] && validInviteClaim(hid, request.resource.data))
+          );
+        allow update: if isMember(hid)
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.householdId == hid
+          && (
+            (request.auth.uid == uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL']))
+            || (request.auth.uid != uid && isAdmin(hid) && resource.data.role != 'owner'
+              && request.resource.data.role in ['member', 'admin']
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
+          );
+        allow delete: if signedIn() && resource.data.role != 'owner'
+          && (request.auth.uid == uid || isAdmin(hid));
+      }
+      match /expenses/{expenseId} {
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && request.resource.data.createdBy == request.auth.uid && validExpense(request.resource.data);
+        allow update: if isMember(hid) && (resource.data.createdBy == request.auth.uid || isAdmin(hid))
+          && immutableAuthor() && validExpense(request.resource.data)
+          && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null);
+        allow delete: if false; // soft delete retains audit evidence
+      }
+      match /settlements/{sid} {
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && request.resource.data.createdBy == request.auth.uid
+          && amount(request.resource.data.amountPaise) && request.resource.data.amountPaise > 0
+          && request.resource.data.from != request.resource.data.to
+          && exists(/databases/$(database)/documents/households/$(hid)/members/$(request.resource.data.from))
+          && exists(/databases/$(database)/documents/households/$(hid)/members/$(request.resource.data.to))
+          && request.resource.data.status == 'recorded' && request.resource.data.reversed == false
+          && (request.auth.uid in [request.resource.data.from, request.resource.data.to] || isAdmin(hid));
+        allow update: if isMember(hid) && immutableAuthor()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reversed', 'updatedAt', 'audit'])
+          && (
+            (request.auth.uid == resource.data.to && resource.data.reversed == false
+              && request.resource.data.status == 'confirmed' && request.resource.data.reversed == false)
+            || ((request.auth.uid in [resource.data.from, resource.data.to, resource.data.createdBy] || isAdmin(hid))
+              && request.resource.data.reversed == true && request.resource.data.status == resource.data.status)
+          );
+        allow delete: if false;
+      }
+      match /bills/{billId} {
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && request.resource.data.createdBy == request.auth.uid
+          && amount(request.resource.data.expectedPaise) && request.resource.data.expectedPaise > 0;
+        allow update: if isMember(hid) && immutableAuthor()
+          && amount(request.resource.data.expectedPaise) && request.resource.data.expectedPaise > 0
+          && (resource.data.get('expenseId', null) == null || request.resource.data.expenseId == resource.data.expenseId)
+          && (resource.data.get('paidAt', null) == null || request.resource.data.paidAt == resource.data.paidAt);
+        allow delete: if false;
+      }
+      match /chores/{choreId} {
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isMember(hid) && immutableAuthor();
+        allow delete: if isMember(hid) && (resource.data.createdBy == request.auth.uid || isAdmin(hid));
+      }
+      match /shoppingItems/{itemId} {
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isMember(hid) && immutableAuthor()
+          && (resource.data.get('expenseId', null) == null || request.resource.data.expenseId == resource.data.expenseId);
+        allow delete: if isMember(hid);
+      }
+      match /activity/{activityId} {
+        allow read: if isMember(hid);
+        allow create: if isMember(hid) && request.resource.data.actorId == request.auth.uid;
+        allow update, delete: if false;
+      }
+      match /notifications/{nid} {
+        allow read: if isMember(hid) && resource.data.recipientId == request.auth.uid;
+        allow create: if isMember(hid) && request.resource.data.actorId == request.auth.uid
+          && exists(/databases/$(database)/documents/households/$(hid)/members/$(request.resource.data.recipientId));
+        allow update: if isMember(hid) && resource.data.recipientId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow delete: if isMember(hid) && resource.data.recipientId == request.auth.uid;
+      }
+    }
+  }
+}
