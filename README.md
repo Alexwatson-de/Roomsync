@@ -161,7 +161,10 @@ Latest checks for this change:
   Four additional Gemini-routing workflows mock provider responses while using
   real emulator persistence/rules: mixed destination saves, section corrections,
   explicit consent, quota errors/local fallback and mixed safe retry. A real
-  Gemini provider extraction was also tested separately with synthetic data.
+  Gemini provider extraction and live signed-in Vercel endpoint were tested
+  separately with synthetic data: grocery/bill/expense review destinations
+  verified, then cancelled before saving. Disposable test accounts/households
+  were cleaned up; anonymous AI requests returned 401.
 
 ```bash
 npm test

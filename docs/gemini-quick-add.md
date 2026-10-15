@@ -125,9 +125,15 @@ Auth/Firestore persistence and rules. No production expenses are seeded by CI.
   mixed-collection lost-acknowledgement recovery; manual household/financial/
   avatar/modal regressions remain covered.
 - A real Gemini provider extraction using synthetic data separated shopping,
-  unpaid bills and paid expenses correctly. Production endpoint verification
-  is separate from mocked emulator tests; never claim all possible wording is
-  understood. Model output always needs review.
+  unpaid bills and paid expenses correctly. A separate **live Vercel check**
+  signed in a disposable Firebase account, created a marked test household,
+  called the protected Gemini endpoint and verified the three review forms
+  routed as grocery/bill/expense with no browser page errors. It cancelled
+  before final confirmation (no expense/bill/shopping records saved); the test
+  account/profile/household were removed by the scoped administrator cleanup.
+  Anonymous inference returned **401**. These live checks are distinct from
+  the mocked emulator tests. Never assume all possible wording is understood;
+  model output always needs review.
 
 ## Files changed
 
