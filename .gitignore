@@ -4,6 +4,7 @@ dist
 .env.local
 .env.*.local
 .firebase
+.vercel/
 firebase-debug.log
 *.log
 .DS_Store
@@ -15,3 +16,5 @@ test-results/
 **/firebase-adminsdk*.json
 *.pem
 *.key
+.env*
+!.env.example

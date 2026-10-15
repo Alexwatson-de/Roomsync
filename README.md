@@ -1,7 +1,11 @@
 # RoomSync — free-tier household management
 
 React 18 + Vite + JavaScript, Firebase **Email/Password Authentication and Cloud
-Firestore**, Recharts and plain CSS. Preview: <http://localhost:5173>.
+Firestore**, Recharts and plain CSS.
+
+**Live website: <https://roomsync-beta.vercel.app>**
+
+Local preview: <http://localhost:5173>.
 
 **No application feature uses Firebase Storage. No billing account is required
 for the active feature set on Firebase Spark, within its no-cost quotas.** No
@@ -126,7 +130,7 @@ imported or bundled by RoomSync.
 The avatar-only Firestore rule extension was deployed and its live source hash
 verified against this repository. Both expense/notification composite indexes
 and the collection-group membership `uid` index remain **READY**. Email/password
-Auth is enabled, localhost is authorized, and billing remains **disabled**.
+Auth is enabled, localhost and **roomsync-beta.vercel.app** are authorized, and billing remains **disabled**.
 Safe read-only status is recorded in `artifacts/firebase/status.json`.
 
 An earlier scoped live test verified shared financial workflows; its disposable
@@ -135,16 +139,55 @@ tested in emulators and did **not** delete/migrate existing live user data or
 create a billing account. Existing service status can be rechecked with the
 read-only admin command above; it no longer queries any Storage API.
 
-## Deployment and remaining limits
+## Vercel deployment
+
+The production site is published at **<https://roomsync-beta.vercel.app>**.
+The Vercel project is `dhruv-820e/roomsync`, linked to the existing GitHub
+repository. Vite builds through `npm ci` / `npm run build`, with `dist` as the
+output. `vercel.json` configures React Router deep-link rewrites and basic
+response headers. The website is publicly reachable; Firebase Authentication
+and membership rules still protect the application data.
+
+Firebase **web** configuration is set as Vercel Config environment variables
+for production and preview: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, and
+`VITE_FIREBASE_MESSAGING_SENDER_ID`. These identifiers are client-public by
+design; Firestore rules enforce access control. `VITE_USE_FIREBASE_EMULATORS`
+is explicitly `false` in deployed environments. No Admin SDK, service-account
+key, GitHub token, or Vercel credential is placed in the frontend configuration.
+
+`.vercelignore` excludes runtime environment files, local credentials,
+dependencies, build output, logs and test artifacts from deployment uploads.
+`.vercel/` and runtime environment files remain excluded from Git. Vercel login
+uses its browser approval flow, not a token pasted into the repository.
+
+After authenticating to Vercel, future manual deployments use:
+
+```bash
+npx --yes vercel@latest deploy --prod --yes
+```
+
+Live verification confirmed HTTP 200 on the root and direct routes, protected
+routes redirecting to Firebase sign-in, Firebase config loading, desktop/mobile
+registration and reset forms, dark/light preference persistence, no horizontal
+mobile overflow, zero page exceptions and no Firebase Storage requests. This
+deployment check did not create new live accounts or financial records.
+
+If adding a custom domain, add it in both Vercel and Firebase Authentication's
+authorized domains. Do not replace existing Firebase authorized domains or
+weaken Firestore rules. Vercel and Firebase no-cost usage limits still apply.
+
+### Optional alternative: Firebase Hosting
 
 ```bash
 npm run build
 npx --yes firebase-tools@13 deploy --project roomsync-9dceb --only hosting
 ```
 
-Hosting publication is optional and separate; no new public Hosting release was
-made for this change. Firestore rules must remain deployed before shared data is
-used. Add your deployed/custom domain to Auth's authorized domains as needed.
+Firebase Hosting was not deployed; the active public website is on Vercel.
+Firestore rules must remain deployed before shared data is used.
+
+## Remaining limits
 
 As before, trusted recursive household deletion and ownership transfer are not
 implemented; their unavailable controls do not silently delete ledgers. No paid
